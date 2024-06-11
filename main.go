@@ -6,11 +6,22 @@ import (
 )
 
 func main() {
-	user, err := InitUser()
+	user1, err := InitUser()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	bundle := user.GenerateKeyBundle()
-	fmt.Println("Bundle:", bundle)
+	bundle := user1.GetKeyBundle()
+
+	user2, err := InitUser()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	msgData, err := user2.SendMessage(bundle, []byte("Hello, World!"))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(msgData)
 }

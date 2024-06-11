@@ -5,6 +5,7 @@ package main
 import (
 	"crypto"
 	"crypto/rand"
+	"errors"
 	"fmt"
 
 	"go.step.sm/crypto/x25519"
@@ -41,6 +42,17 @@ type User struct {
 	OneTimePreKeyCounter int
 	// Signed Pre Key Signature
 	SignedPreKeySignature []byte
+}
+
+type InitialMessage struct {
+	// Identity Key
+	IdentityKey x25519.PublicKey
+	// Ephemeral Key
+	EphemeralKey x25519.PublicKey
+	// One Time Pre Key ID
+	OneTimePreKeyID int
+	// AEAD
+	AEAD []byte
 }
 
 func NewUser() *User {
@@ -94,7 +106,7 @@ func (u *User) GenerateOneTimePreKey() error {
 	return nil
 }
 
-func (u *User) GenerateKeyBundle() *KeyBundle {
+func (u *User) GetKeyBundle() *KeyBundle {
 	// Create signature
 	signature, err := signPreKey(u.IdentityKey.PrivateKey, u.SignedPreKey.PublicKey)
 	if err != nil {
@@ -116,6 +128,69 @@ func (u *User) GenerateKeyBundle() *KeyBundle {
 	}
 	// Return the key bundle
 	return kb
+}
+
+func (kb *KeyBundle) Validate() bool {
+	// Validate the signed pre key
+	valid := x25519.Verify(kb.IdentityKey, kb.SignedPreKey, kb.SignedPreKeySignature)
+	return valid
+}
+
+func (u *User) SendMessage(kb *KeyBundle, msg []byte) (*InitialMessage, error) {
+	// Validate the key bundle
+	valid := kb.Validate()
+	if !valid {
+		fmt.Println("Invalid key bundle")
+		return nil, errors.New("Invalid key bundle")
+	}
+	fmt.Println("Valid key bundle")
+	// Generate Ephermal Key
+	ephemeralKey, err := newKeyPair()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	// TODO: Select a one time pre key
+	otp_id := 0
+	// Generate shared secret
+	// kb.signedPreKey to []byte
+	dh1, err := u.IdentityKey.PrivateKey.SharedKey(kb.SignedPreKey)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	dh2, err := ephemeralKey.PrivateKey.SharedKey(kb.IdentityKey)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	dh3, err := ephemeralKey.PrivateKey.SharedKey(kb.OneTimePreKeys[otp_id])
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	// Concatenate the shared secrets
+	sharedSecret := []byte{}
+	sharedSecret = append(sharedSecret, dh1[:]...)
+	sharedSecret = append(sharedSecret, dh2[:]...)
+	sharedSecret = append(sharedSecret, dh3[:]...)
+	// TODO: Derive a key from the shared secret
+
+	// Build AD
+	ad := []byte{}
+	ad = append(ad, u.IdentityKey.PublicKey[:]...)
+	ad = append(ad, kb.IdentityKey[:]...)
+	// TODO: Encrypt the message with the shared secret using AEAD schema (msg encrypted + ad)
+
+	// Generate a new initial message
+	im := &InitialMessage{
+		IdentityKey:     u.IdentityKey.PublicKey,
+		EphemeralKey:    ephemeralKey.PublicKey,
+		OneTimePreKeyID: kb.OneTimePreKeyIDs[0],
+		AEAD:            []byte{}, // TODO: Encrypted message
+	}
+	// Return the initial message
+	return im, nil
 }
 
 func newKeyPair() (*KeyPair, error) {
