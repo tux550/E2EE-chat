@@ -9,11 +9,7 @@ import (
 
 func main() {
 	// SERVER
-	s, err := x3dh_server.InitServer()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	s := x3dh_server.NewServer()
 
 	// CLIENTS
 	c1, err := x3dh_client.InitClient()
@@ -26,8 +22,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	s.AddClient("Alice", bundle1)
-
+	s.RegisterClient("Alice", *bundle1)
 	c2, err := x3dh_client.InitClient()
 	if err != nil {
 		fmt.Println(err)
@@ -38,22 +33,34 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	s.AddClient("Bob", bundle2)
-
+	s.RegisterClient("Bob", *bundle2)
 	// Send message
 	// Alice retrieves Bob's key bundle
-	kb = s.GetClientBundle("Bob")
+	kb, ok := s.GetClientBundle("Bob")
+	if !ok {
+		fmt.Println("Bob's key bundle not found")
+		return
+	}
 	// Alice sends message to Bob
 	fmt.Println("Sending message...")
-	msgData, err := c2.SendMessage(kb, []byte("Hello, World!"))
+	msgData, err := c1.BuildMessage(&kb, []byte("Hello, World!"))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	s.SendMessage("Bob", msgData)
+	ok = s.SendMessage("Bob", *msgData)
+	if !ok {
+		fmt.Println("Message not sent")
+		return
+	}
+	bobMessage, ok := s.GetMessage("Bob")
+	if !ok {
+		fmt.Println("Bob's message not found")
+		return
+	}
 	// Bob recieves message
 	fmt.Println("Recieving message...")
-	msg, err := c1.RecieveMessage(msgData)
+	msg, err := c2.RecieveMessage(&bobMessage)
 	if err != nil {
 		fmt.Println(err)
 		return

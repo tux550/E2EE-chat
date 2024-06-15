@@ -1,6 +1,6 @@
 package x3dh_core
 
-type X3DHInitBundle struct {
+type X3DHClientBundle struct {
 	// Identity Key
 	IK X3DHPublicIK
 	// Signed Pre Key
