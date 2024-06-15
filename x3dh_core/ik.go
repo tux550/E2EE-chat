@@ -1,4 +1,4 @@
-package x3dh
+package x3dh_core
 
 import "go.step.sm/crypto/x25519"
 

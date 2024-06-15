@@ -1,4 +1,4 @@
-package x3dh
+package x3dh_core
 
 import (
 	"crypto"

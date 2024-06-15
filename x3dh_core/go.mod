@@ -1,4 +1,4 @@
-module x3dh
+module x3dh_core
 
 go 1.22.2
 

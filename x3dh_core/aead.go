@@ -1,4 +1,4 @@
-package x3dh
+package x3dh_core
 
 import (
 	"crypto/aes"
@@ -22,7 +22,7 @@ func deriveKey(secret, salt []byte) []byte {
 }
 
 // Encrypts the plaintext using AES-GCM with the given secret and associated data
-func encryptAEAD(secret, plaintext, associatedData []byte) (salt, nonce, ciphertext []byte, err error) {
+func EncryptAEAD(secret, plaintext, associatedData []byte) (salt, nonce, ciphertext []byte, err error) {
 	// Generate a random salt
 	salt = make([]byte, saltSize)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
@@ -56,7 +56,7 @@ func encryptAEAD(secret, plaintext, associatedData []byte) (salt, nonce, ciphert
 }
 
 // Decrypts the ciphertext using AES-GCM with the given secret, salt, nonce, and associated data
-func decryptAEAD(secret, salt, nonce, ciphertext, associatedData []byte) (plaintext []byte, err error) {
+func DecryptAEAD(secret, salt, nonce, ciphertext, associatedData []byte) (plaintext []byte, err error) {
 	// Derive the key from the secret and salt
 	key := deriveKey(secret, salt)
 

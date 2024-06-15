@@ -1,57 +1,86 @@
-package x3dh
+package x3dh_client
 
 import (
-	"errors"
-	"fmt"
-
-	"go.step.sm/crypto/x25519"
+	"x3dh_core"
 )
 
 type X3DHClient struct {
-	// Private Bundle
-	KeyBundle *X3DHKeyBundle
-}
-
-type InitialMessage struct {
-	// Identity Key
-	IdentityKey x25519.PublicKey
-	// Ephemeral Key
-	EphemeralKey x25519.PublicKey
-	// One Time Pre Key ID
-	OneTimePreKeyID int
-	// AEAD
-	Ciphertext []byte
-	AD         []byte
-	// Nonce
-	Nonce []byte
-	Salt  []byte
+	// Identity
+	IdentityKey x3dh_core.X3DHFullIK
+	// Signed Pre Key
+	SignedPreKey x3dh_core.X3DHFullSPK
+	// One Time Pre Keys
+	OneTimePreKeys []x3dh_core.X3DHFullOTP
+	// Counter
+	otpCounter int
 }
 
 func NewClient() *X3DHClient {
 	return &X3DHClient{
-		KeyBundle: &X3DHKeyBundle{},
+		otpCounter: 0,
 	}
 }
+
+// TODO: Load Client from file
+// func LoadClient() (*X3DHClient, error) {}
 
 func InitClient() (*X3DHClient, error) {
 	// Create a new client
 	c := NewClient()
-	// Generate key bundle
-	kb, err := GenereateKeyBundle()
+	// Identity Key
+	ik, err := x3dh_core.GenerateFullIK()
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
-	c.KeyBundle = kb
+	c.IdentityKey = *ik
+	// Signed Pre Key
+	spk, err := x3dh_core.GenerateFullSPK(c.IdentityKey.IdentityKey)
+	if err != nil {
+		return nil, err
+	}
+	c.SignedPreKey = *spk
+	// One Time Pre Keys
+	for i := 0; i < 5; i++ {
+		err := c.generateOneTimePreKey()
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Return the client
 	return c, nil
 }
 
-func (c *X3DHClient) GetPublicKeyBundle() *X3DHPublicKeyBundle {
-	return c.KeyBundle.PublicBundle()
+func (c *X3DHClient) generateOneTimePreKey() error {
+	// Generate one time pre key
+	otp, err := x3dh_core.GenerateFullOTP(c.otpCounter)
+	if err != nil {
+		return err
+	}
+	// Append the one time pre key
+	c.OneTimePreKeys = append(c.OneTimePreKeys, *otp)
+	// Increment the counter
+	c.otpCounter++
+	// Return
+	return nil
 }
 
-func (c *X3DHClient) SendMessage(pkb *X3DHPublicKeyBundle, msg []byte) (*InitialMessage, error) {
+func (c *X3DHClient) GetServerInitBundle() (*x3dh_core.X3DHInitBundle, error) {
+	// Generate the server key bundle
+	otp_set := make([]x3dh_core.X3DHPublicOTP, 0)
+	for _, otp := range c.OneTimePreKeys {
+		otp_set = append(otp_set, *otp.PublicOTP())
+	}
+	skb := &x3dh_core.X3DHInitBundle{
+		IK:     *c.IdentityKey.PublicIK(),
+		SPK:    *c.SignedPreKey.PublicSPK(),
+		OtpSet: otp_set,
+	}
+	// Return the server key bundle
+	return skb, nil
+}
+
+/*
+func (c *X3DHClient) SendMessage(pkb *X3DHClientKeyBundle, msg []byte) (*InitialMessage, error) {
 	// Validate the key bundle
 	valid := pkb.Validate()
 	if !valid {
@@ -63,21 +92,19 @@ func (c *X3DHClient) SendMessage(pkb *X3DHPublicKeyBundle, msg []byte) (*Initial
 		fmt.Println(err)
 		return nil, err
 	}
-	// TODO: Select a one time pre key
-	otp_id := 0
 	// Generate shared secret
 	// kb.signedPreKey to []byte
-	dh1, err := c.KeyBundle.ik.IdentityKey.SharedKey(pkb.spk.SignedPreKey)
+	dh1, err := c.KeyBundle.ik.IdentityKey.SharedKey(pkb.SPK.SignedPreKey)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	dh2, err := ephemeralKey.SharedKey(pkb.ik.IdentityKey)
+	dh2, err := ephemeralKey.SharedKey(pkb.IK.IdentityKey)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	dh3, err := ephemeralKey.SharedKey(pkb.otp_set[otp_id].OneTimePreKey)
+	dh3, err := ephemeralKey.SharedKey(pkb.OTP.OneTimePreKey)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -90,8 +117,8 @@ func (c *X3DHClient) SendMessage(pkb *X3DHPublicKeyBundle, msg []byte) (*Initial
 	// Build AD
 	ad := []byte{}
 	ad = append(ad, c.KeyBundle.ik.IdentityKey.PublicKey[:]...)
-	ad = append(ad, pkb.ik.IdentityKey[:]...)
-	// TODO: Encrypt the message with the shared secret using AEAD schema (msg encrypted + ad)
+	ad = append(ad, pkb.IK.IdentityKey[:]...)
+	// Encrypt the message with the shared secret using AEAD schema (msg encrypted + ad)
 	salt, nonce, ciphertext, err := encryptAEAD(
 		sharedSecret,
 		msg,
@@ -105,7 +132,7 @@ func (c *X3DHClient) SendMessage(pkb *X3DHPublicKeyBundle, msg []byte) (*Initial
 	im := &InitialMessage{
 		IdentityKey:     c.KeyBundle.ik.IdentityKey.PublicKey,
 		EphemeralKey:    ephemeralKey.PublicKey,
-		OneTimePreKeyID: otp_id,
+		OneTimePreKeyID: pkb.OTP.OneTimePreKeyID,
 		Ciphertext:      ciphertext,
 		AD:              ad,
 		Nonce:           nonce,
@@ -157,3 +184,4 @@ func (c *X3DHClient) RecieveMessage(im *InitialMessage) ([]byte, error) {
 	// Return the plaintext
 	return plaintext, nil
 }
+*/
