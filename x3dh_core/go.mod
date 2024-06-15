@@ -1,4 +1,4 @@
-module x3dh_core
+module tux.tech/x3dh/core
 
 go 1.22.2
 

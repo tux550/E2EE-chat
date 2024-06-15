@@ -3,8 +3,9 @@ package main
 // Triple Diffie-Hellman Exchange (3DHX)
 import (
 	"fmt"
-	"x3dh_client"
-	"x3dh_server"
+
+	x3dh_client "tux.tech/x3dh/client"
+	x3dh_server "tux.tech/x3dh/server"
 )
 
 func main() {

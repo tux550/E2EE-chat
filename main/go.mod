@@ -2,17 +2,17 @@ module main
 
 go 1.22.2
 
-replace x3dh_core => ../x3dh_core
+replace tux.tech/x3dh/client => ../x3dh_client
 
-replace x3dh_client => ../x3dh_client
+replace tux.tech/x3dh/server => ../x3dh_server
 
-replace x3dh_server => ../x3dh_server
+replace tux.tech/x3dh/core => ../x3dh_core
 
-require x3dh_core v0.0.0-00010101000000-000000000000
+require tux.tech/x3dh/client v0.0.0-00010101000000-000000000000
 
-require x3dh_client v0.0.0-00010101000000-000000000000
+require tux.tech/x3dh/server v0.0.0-00010101000000-000000000000
 
-require x3dh_server v0.0.0-00010101000000-000000000000
+require tux.tech/x3dh/core v0.0.0-00010101000000-000000000000 // indirect
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect

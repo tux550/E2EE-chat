@@ -1,14 +1,14 @@
 package x3dh_server
 
 import (
-	"x3dh_core"
+	X3DHCore "tux.tech/x3dh/core"
 )
 
 type ClientData struct {
 	// Bundle
-	Bundle x3dh_core.X3DHClientBundle
+	Bundle X3DHCore.X3DHClientBundle
 	// Queue
-	Queue []x3dh_core.InitialMessage
+	Queue []X3DHCore.InitialMessage
 }
 
 type Server struct {
@@ -21,21 +21,21 @@ func NewServer() *Server {
 	}
 }
 
-func NewClientData(bundle x3dh_core.X3DHClientBundle) *ClientData {
+func NewClientData(bundle X3DHCore.X3DHClientBundle) *ClientData {
 	return &ClientData{
 		Bundle: bundle,
-		Queue:  make([]x3dh_core.InitialMessage, 0),
+		Queue:  make([]X3DHCore.InitialMessage, 0),
 	}
 }
 
-func (s *Server) RegisterClient(clientID string, bundle x3dh_core.X3DHClientBundle) {
+func (s *Server) RegisterClient(clientID string, bundle X3DHCore.X3DHClientBundle) {
 	s.clients[clientID] = NewClientData(bundle)
 }
 
-func (s *Server) GetClientBundle(clientID string) (x3dh_core.X3DHKeyBundle, bool) {
+func (s *Server) GetClientBundle(clientID string) (X3DHCore.X3DHKeyBundle, bool) {
 	c, ok := s.clients[clientID]
 	if !ok {
-		return x3dh_core.X3DHKeyBundle{}, false
+		return X3DHCore.X3DHKeyBundle{}, false
 	}
 	// Build the key bundle
 	// Identity Key
@@ -44,19 +44,19 @@ func (s *Server) GetClientBundle(clientID string) (x3dh_core.X3DHKeyBundle, bool
 	spk := c.Bundle.SPK
 	// One Time Pre Key
 	if len(c.Bundle.OtpSet) == 0 {
-		return x3dh_core.X3DHKeyBundle{}, false
+		return X3DHCore.X3DHKeyBundle{}, false
 	}
 	otp := c.Bundle.OtpSet[0]
 	c.Bundle.OtpSet = c.Bundle.OtpSet[1:]
 	// Return
-	return x3dh_core.X3DHKeyBundle{
+	return X3DHCore.X3DHKeyBundle{
 		IK:  ik,
 		SPK: spk,
 		OTP: otp,
 	}, true
 }
 
-func (s *Server) SendMessage(clientID string, msg x3dh_core.InitialMessage) bool {
+func (s *Server) SendMessage(clientID string, msg X3DHCore.InitialMessage) bool {
 	c, ok := s.clients[clientID]
 	if !ok {
 		return false
@@ -65,13 +65,13 @@ func (s *Server) SendMessage(clientID string, msg x3dh_core.InitialMessage) bool
 	return true
 }
 
-func (s *Server) GetMessage(clientID string) (x3dh_core.InitialMessage, bool) {
+func (s *Server) GetMessage(clientID string) (X3DHCore.InitialMessage, bool) {
 	c, ok := s.clients[clientID]
 	if !ok {
-		return x3dh_core.InitialMessage{}, false
+		return X3DHCore.InitialMessage{}, false
 	}
 	if len(c.Queue) == 0 {
-		return x3dh_core.InitialMessage{}, false
+		return X3DHCore.InitialMessage{}, false
 	}
 	msg := c.Queue[0]
 	c.Queue = c.Queue[1:]
