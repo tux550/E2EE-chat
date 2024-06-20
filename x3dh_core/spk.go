@@ -11,9 +11,9 @@ type X3DHFullSPK struct {
 
 type X3DHPublicSPK struct {
 	// Signed Pre Key
-	SignedPreKey x25519.PublicKey
+	SignedPreKey x25519.PublicKey `json:"key"`
 	// Signed Pre Key Signature
-	SignedPreKeySignature []byte
+	SignedPreKeySignature []byte `json:"signature"`
 }
 
 func (spk *X3DHFullSPK) PublicSPK() *X3DHPublicSPK {

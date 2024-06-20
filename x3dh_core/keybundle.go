@@ -6,11 +6,11 @@ import (
 
 type X3DHKeyBundle struct {
 	// Identity Key
-	IK X3DHPublicIK
+	IK X3DHPublicIK `json:"identity_key"`
 	// Signed Pre Key
-	SPK X3DHPublicSPK
+	SPK X3DHPublicSPK `json:"signed_pre_key"`
 	// One Time Pre Key
-	OTP X3DHPublicOTP
+	OTP X3DHPublicOTP `json:"one_time_pre_key"`
 }
 
 func (kb *X3DHKeyBundle) Validate() bool {

@@ -9,7 +9,7 @@ type X3DHFullIK struct {
 
 type X3DHPublicIK struct {
 	// Identity Key
-	IdentityKey x25519.PublicKey
+	IdentityKey x25519.PublicKey `json:"identity_key"`
 }
 
 func (ik *X3DHFullIK) PublicIK() *X3DHPublicIK {

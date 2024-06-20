@@ -11,9 +11,9 @@ type X3DHFullOTP struct {
 
 type X3DHPublicOTP struct {
 	// One Time Pre Key
-	OneTimePreKey x25519.PublicKey
+	OneTimePreKey x25519.PublicKey `json:"key"`
 	// One Time Pre Key ID
-	OneTimePreKeyID int
+	OneTimePreKeyID int `json:"id"`
 }
 
 func (otp *X3DHFullOTP) PublicOTP() *X3DHPublicOTP {

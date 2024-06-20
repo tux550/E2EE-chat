@@ -2,9 +2,11 @@ package main
 
 // Triple Diffie-Hellman Exchange (3DHX)
 import (
+	"encoding/json"
 	"fmt"
 
 	x3dh_client "tux.tech/x3dh/client"
+	x3dh_core "tux.tech/x3dh/core"
 	x3dh_server "tux.tech/x3dh/server"
 )
 
@@ -49,6 +51,19 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	msgJSON, err := json.Marshal(*msgData)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(string(msgJSON))
+	msgUnmarshalled := x3dh_core.InitialMessage{}
+	err = json.Unmarshal(msgJSON, &msgUnmarshalled)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	ok = s.SendMessage("Bob", *msgData)
 	if !ok {
 		fmt.Println("Message not sent")
