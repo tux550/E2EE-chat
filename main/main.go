@@ -10,6 +10,16 @@ import (
 	x3dh_server "tux.tech/x3dh/server"
 )
 
+func createAccount() {
+	var username, password string
+	//TODO: incorporate API call for creating account
+}
+
+func logIn() {
+	var username, password string
+	//TODO: incorporate API call for corroborating credentials and log in (DB)
+}
+
 func menu() {
 	fmt.Println("===E2EE CHAT===")
 	fmt.Println("1. Create account")
