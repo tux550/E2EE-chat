@@ -124,7 +124,7 @@ func (client *WsClient) HandleSendMessage(rawParams json.RawMessage) {
 		return
 	}
 	// Send message
-	client.server.x3dh_server.SendMessage(params.RecipientID, params.MessageData)
+	client.server.x3dh_server.SendMessage(client.username, params.RecipientID, params.MessageData)
 	// To API response
 	response := &api.OutboundMessage{
 		Method: "send_message",
@@ -154,8 +154,9 @@ func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
 	response := &api.OutboundMessage{
 		Method: "receive_message",
 		Params: api.ResponseReceiveMsg{
-			//SenderID:    msg.SenderID,
-			MessageData: msg,
+			SenderID:    msg.SenderID,
+			RecipientID: msg.RecipientID,
+			MessageData: msg.MessageData,
 		},
 	}
 	// Send response
