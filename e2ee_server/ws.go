@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	x3dh_server "tux.tech/x3dh/server"
 )
 
 var upgrader = websocket.Upgrader{
@@ -15,13 +16,15 @@ var upgrader = websocket.Upgrader{
 }
 
 type WsServer struct {
-	clients map[*WsClient]bool
-	mu      sync.Mutex
+	clients     map[*WsClient]bool
+	mu          sync.Mutex
+	x3dh_server *x3dh_server.Server
 }
 
 func NewWsServer() *WsServer {
 	return &WsServer{
-		clients: make(map[*WsClient]bool),
+		clients:     make(map[*WsClient]bool),
+		x3dh_server: x3dh_server.NewServer(),
 	}
 }
 

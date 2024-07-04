@@ -40,6 +40,6 @@ type ResponseSendMsg struct {
 }
 
 type ResponseReceiveMsg struct {
-	SenderID    string                   `json:"sender_id"`
+	//SenderID    string                   `json:"sender_id"`
 	MessageData x3dh_core.InitialMessage `json:"message"`
 }

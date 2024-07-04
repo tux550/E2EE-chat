@@ -1,0 +1,10 @@
+services:
+  cassandra:
+    image: cassandra:4.0
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=E2EEChat
+    volumes:
+      - ./data/cassandra:/var/lib/cassandra

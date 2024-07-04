@@ -5,6 +5,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	api "tux.tech/e2ee/api"
+	x3dh_core "tux.tech/x3dh/core"
 )
 
 type WsClient struct {
@@ -69,37 +70,98 @@ func (client *WsClient) Disconnect() {
 }
 
 func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
+	// Parse JSON
 	params := &api.RequestUserBundle{}
 	err := json.Unmarshal(rawParams, params)
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+	// Get user bundle
+	bundle, ok := client.server.x3dh_server.GetClientBundle(params.UserID)
+	if !ok {
+		return
+	}
+	// To API response
+	response := &api.OutboundMessage{
+		Method: "get_bundle",
+		Params: api.ResponseUserBundle(bundle),
+	}
+	// Send response
+	responseJson, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+	client.send <- responseJson
 }
 
 func (client *WsClient) HandleUploadBundle(rawParams json.RawMessage) {
+	// Parse JSON
 	params := &api.RequestUploadBundle{}
 	err := json.Unmarshal(rawParams, params)
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+	// Register client
+	client.server.x3dh_server.RegisterClient(client.username, *(*x3dh_core.X3DHClientBundle)(params))
+	// To API response
+	response := &api.OutboundMessage{
+		Method: "upload_bundle",
+		Params: api.ResponseUploadBundle{Success: true},
+	}
+	// Send response
+	responseJson, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+	client.send <- responseJson
 }
 
 func (client *WsClient) HandleSendMessage(rawParams json.RawMessage) {
+	// Parse JSON
 	params := &api.RequestSendMsg{}
 	err := json.Unmarshal(rawParams, params)
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+	// Send message
+	client.server.x3dh_server.SendMessage(params.RecipientID, params.MessageData)
+	// To API response
+	response := &api.OutboundMessage{
+		Method: "send_message",
+		Params: api.ResponseSendMsg{Success: true},
+	}
+	// Send response
+	responseJson, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+	client.send <- responseJson
 }
 
 func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
+	// Parse JSON
 	params := &api.RequestReceiveMsg{}
 	err := json.Unmarshal(rawParams, params)
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+	// Receive message
+	msg, ok := client.server.x3dh_server.GetMessage(client.username)
+	if !ok {
+		return
+	}
+	// To API response
+	response := &api.OutboundMessage{
+		Method: "receive_message",
+		Params: api.ResponseReceiveMsg{
+			//SenderID:    msg.SenderID,
+			MessageData: msg,
+		},
+	}
+	// Send response
+	responseJson, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+	client.send <- responseJson
 }
