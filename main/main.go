@@ -10,7 +10,36 @@ import (
 	x3dh_server "tux.tech/x3dh/server"
 )
 
+func menu() {
+	fmt.Println("===E2EE CHAT===")
+	fmt.Println("1. Create account")
+	fmt.Println("2. Log In")
+	fmt.Println("Option >")
+
+	var option int
+	option, err := fmt.Scanln(&option);
+	if err != nil {
+		fmt.Println(err)
+		log.Fatal(err)
+    }
+	switch option {
+	case 1:
+		createAccount()
+	case 2:
+		logIn()
+	case 3:
+		fmt.Println("~Goodbye!")
+		return
+	default:
+		return
+	}
+}
+
 func main() {
+	// for {
+	// 	menu()
+	// }
+
 	// SERVER
 	s := x3dh_server.NewServer()
 
