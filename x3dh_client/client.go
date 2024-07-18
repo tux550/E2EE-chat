@@ -10,6 +10,8 @@ import (
 )
 
 type X3DHClient struct {
+	// Username
+	Username string
 	// Identity
 	IdentityKey X3DHCore.X3DHFullIK
 	// Signed Pre Key
@@ -29,6 +31,7 @@ func NewClient() *X3DHClient {
 func (c *X3DHClient) DebugPrint() {
 	// Print the client
 	fmt.Println("=== Client ===")
+	fmt.Println("Username: ", c.Username)
 	fmt.Println("Identity Key: ", c.IdentityKey.IdentityKey.PublicKey)
 	fmt.Println("Signed Pre Key: ", c.SignedPreKey.SignedPreKey.PublicKey)
 	fmt.Println("One Time Pre Keys: ")
@@ -72,9 +75,11 @@ func LoadClient(target_filename string) (*X3DHClient, error) {
 	return c, nil
 }
 
-func InitClient() (*X3DHClient, error) {
+func InitClient(username string) (*X3DHClient, error) {
 	// Create a new client
 	c := NewClient()
+	// Set the username
+	c.Username = username
 	// Identity Key
 	ik, err := X3DHCore.GenerateFullIK()
 	if err != nil {
