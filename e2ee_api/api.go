@@ -20,6 +20,10 @@ type RequestUploadBundle struct {
 	Bundle x3dh_core.X3DHClientBundle `json:"bundle"`
 }
 
+type RequestUserIsRegistered struct {
+	UserID string `json:"user_id"`
+}
+
 type RequestSendMsg struct {
 	RecipientID string                   `json:"recipient_id"`
 	MessageData x3dh_core.InitialMessage `json:"message"`
@@ -32,9 +36,16 @@ type OutboundMessage struct {
 	Params interface{} `json:"params"`
 }
 
-type ResponseUserBundle x3dh_core.X3DHKeyBundle
+type ResponseUserBundle struct {
+	Success bool                    `json:"success"`
+	Bundle  x3dh_core.X3DHKeyBundle `json:"bundle"`
+}
 
 type ResponseUploadBundle struct {
+	Success bool `json:"success"`
+}
+
+type ResponseUserIsRegistered struct {
 	Success bool `json:"success"`
 }
 

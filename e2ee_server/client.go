@@ -61,8 +61,9 @@ func (client *WsClient) HandleMessage(rawMessage []byte) {
 		client.HandleSendMessage(message.Params)
 	case "receive_message":
 		client.HandleReceiveMessage(message.Params)
+	case "user_is_registered":
+		client.HandleUserIsRegistered(message.Params)
 	}
-
 }
 
 func (client *WsClient) Disconnect() {
@@ -77,7 +78,24 @@ func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+
+	// Get the bundle
+	bundle, ok := client.server.X3DHServer.GetClientBundle(params.UserID)
+	fmt.Println("User", client.username, "requested bundle for user", params.UserID, ":", ok)
+	response := &api.ResponseUserBundle{
+		Success: ok,
+		Bundle:  bundle,
+	}
+	api_reply := &api.OutboundMessage{
+		Method: "get_bundle",
+		Params: response,
+	}
+	responseBytes, err := json.Marshal(api_reply)
+	if err != nil {
+		fmt.Println("Error marshalling fail response to get_bundle")
+		return
+	}
+	client.send <- responseBytes
 }
 
 func (client *WsClient) HandleUploadBundle(rawParams json.RawMessage) {
@@ -138,4 +156,29 @@ func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
 		return
 	}
 	// TODO: Implement
+}
+
+func (client *WsClient) HandleUserIsRegistered(rawParams json.RawMessage) {
+	params := &api.RequestUserIsRegistered{}
+	err := json.Unmarshal(rawParams, params)
+	if err != nil {
+		return
+	}
+	// Check if the user is registered
+	registered := client.server.X3DHServer.IsClientRegistered(params.UserID)
+	fmt.Println("User", client.username, "checked if user", params.UserID, "is registered")
+	// Send response
+	response := &api.ResponseUserIsRegistered{
+		Success: registered,
+	}
+	api_reply := &api.OutboundMessage{
+		Method: "user_is_registered",
+		Params: response,
+	}
+	responseBytes, err := json.Marshal(api_reply)
+	if err != nil {
+		fmt.Println("Error marshalling success response to user_is_registered")
+		return
+	}
+	client.send <- responseBytes
 }

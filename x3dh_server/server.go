@@ -32,6 +32,11 @@ func (s *Server) RegisterClient(clientID string, bundle X3DHCore.X3DHClientBundl
 	s.clients[clientID] = NewClientData(bundle)
 }
 
+func (s *Server) IsClientRegistered(clientID string) bool {
+	_, ok := s.clients[clientID]
+	return ok
+}
+
 func (s *Server) GetClientBundle(clientID string) (X3DHCore.X3DHKeyBundle, bool) {
 	c, ok := s.clients[clientID]
 	if !ok {
