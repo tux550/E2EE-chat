@@ -6,9 +6,13 @@ replace tux.tech/x3dh/core => ../x3dh_core
 
 replace tux.tech/x3dh/client => ../x3dh_client
 
+replace tux.tech/e2ee/api => ../e2ee_api
+
 require tux.tech/x3dh/core v0.0.0-00010101000000-000000000000 // indirect
 
 require tux.tech/x3dh/client v0.0.0-00010101000000-000000000000
+
+require tux.tech/e2ee/api v0.0.0-00010101000000-000000000000
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect

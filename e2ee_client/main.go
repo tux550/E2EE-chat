@@ -8,14 +8,15 @@ import (
 	"os"
 
 	"github.com/gorilla/websocket"
+	e2ee_api "tux.tech/e2ee/api"
 	x3dh_client "tux.tech/x3dh/client"
 	x3dh_core "tux.tech/x3dh/core"
 )
 
 // ================================== CONFIG ===========================
 var url = "ws://localhost:8765/ws"
-var secrets_filename = ".secrets.json"
 var contacts_filename = "contacts.json"
+var secrets_filename string
 
 // ================================== STRUCTS ===========================
 type Contact struct {
@@ -306,7 +307,7 @@ func MenuShareMyContact(client *x3dh_client.X3DHClient) {
 }
 
 // ================================== User Interface ===========================
-func Menu(client *x3dh_client.X3DHClient, contacts *Contacts) {
+func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn) {
 	for {
 		fmt.Println("=== Menu ===")
 		fmt.Println("1. List Contacts")
@@ -343,6 +344,41 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts) {
 	}
 }
 
+// ================================== API CALLS ===========================
+
+func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) {
+	fmt.Println("UPLOADING INIT BUNDLE")
+	// Get bundle
+	bundle, err := client.GetServerInitBundle()
+	if err != nil {
+		fmt.Println("Could not get bundle:", err)
+		return
+	}
+	// Build API call
+	params, err := json.Marshal(bundle)
+	if err != nil {
+		fmt.Println("Could not marshal bundle:", err)
+		return
+	}
+	api_call := &e2ee_api.InboundMessage{
+		Method: "upload_bundle",
+		Params: params,
+	}
+	// Marshal the API call to JSON
+	data, err := json.Marshal(api_call)
+	if err != nil {
+		fmt.Println("Could not marshal API call:", err)
+		return
+	}
+	// Send bundle
+	err = c.WriteMessage(websocket.TextMessage, data)
+	if err != nil {
+		fmt.Println("Could not send bundle:", err)
+		return
+	}
+	fmt.Println("SENT INIT BUNDLE")
+}
+
 // ================================== CONNECTION ===========================
 
 func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
@@ -372,10 +408,11 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 	}()
 
 	// Parallel handle incoming messages
-	go HandleIncomingMessages(client, c)
+	//go HandleIncomingMessages(client, c)
 
 	// Infinite loop for interface
-	Menu(client, contacts)
+	APIUploadBundle(client, c)
+	Menu(client, contacts, c)
 	/*
 			// Read user input
 			var message string
@@ -399,6 +436,9 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 
 // ================================== MAIN ===========================
 func main() {
+	// Select user file
+	fmt.Println("Enter user file:")
+	fmt.Scanln(&secrets_filename)
 
 	// LOAD CLIENT
 	a, err := GetMyClient()

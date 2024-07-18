@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/gorilla/websocket"
 	api "tux.tech/e2ee/api"
@@ -32,7 +33,7 @@ func (client *WsClient) WritePump() {
 func (client *WsClient) ReadPump() {
 	for {
 		mt, message, err := client.conn.ReadMessage()
-		if err != nil || mt != websocket.CloseMessage {
+		if err != nil || mt == websocket.CloseMessage {
 			break // Exit loop
 		}
 		if mt == websocket.TextMessage {
@@ -43,6 +44,8 @@ func (client *WsClient) ReadPump() {
 }
 
 func (client *WsClient) HandleMessage(rawMessage []byte) {
+	// Log
+	fmt.Println("Received message from", client.username, ":", string(rawMessage))
 	// Parse JSON
 	message := &api.InboundMessage{}
 	err := json.Unmarshal(rawMessage, message)
@@ -74,7 +77,7 @@ func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+
 }
 
 func (client *WsClient) HandleUploadBundle(rawParams json.RawMessage) {
