@@ -1,7 +1,10 @@
 package x3dh_client
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
 
 	X3DHCore "tux.tech/x3dh/core"
 )
@@ -23,8 +26,51 @@ func NewClient() *X3DHClient {
 	}
 }
 
-// TODO: Load Client from file
-// func LoadClient() (*X3DHClient, error) {}
+func (c *X3DHClient) DebugPrint() {
+	// Print the client
+	fmt.Println("=== Client ===")
+	fmt.Println("Identity Key: ", c.IdentityKey.IdentityKey.PublicKey)
+	fmt.Println("Signed Pre Key: ", c.SignedPreKey.SignedPreKey.PublicKey)
+	fmt.Println("One Time Pre Keys: ")
+	for i, otp := range c.OneTimePreKeys {
+		fmt.Println("One Time Pre Key ", i, ": ", otp.OneTimePreKey.PublicKey)
+	}
+	fmt.Println("OTP Counter: ", c.otpCounter)
+	fmt.Println("=== End ===")
+}
+
+// Save client
+func (c *X3DHClient) SaveClient(target_filename string) error {
+	// Marshal the client to JSON
+	data, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	// Write the data to the file
+	err = os.WriteFile(target_filename, data, 0644)
+	if err != nil {
+		return err
+	}
+	// Return
+	return nil
+}
+
+// Load client
+func LoadClient(target_filename string) (*X3DHClient, error) {
+	// Read the data from the file
+	data, err := os.ReadFile(target_filename)
+	if err != nil {
+		return nil, err
+	}
+	// Unmarshal the data to a client
+	c := NewClient()
+	err = json.Unmarshal(data, c)
+	if err != nil {
+		return nil, err
+	}
+	// Return the client
+	return c, nil
+}
 
 func InitClient() (*X3DHClient, error) {
 	// Create a new client
