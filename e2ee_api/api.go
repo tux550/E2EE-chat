@@ -15,7 +15,10 @@ type RequestUserBundle struct {
 	UserID string `json:"user_id"`
 }
 
-type RequestUploadBundle x3dh_core.X3DHClientBundle
+type RequestUploadBundle struct {
+	UserID string                     `json:"user_id"`
+	Bundle x3dh_core.X3DHClientBundle `json:"bundle"`
+}
 
 type RequestSendMsg struct {
 	RecipientID string                   `json:"recipient_id"`

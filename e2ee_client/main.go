@@ -347,7 +347,6 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 // ================================== API CALLS ===========================
 
 func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) {
-	fmt.Println("UPLOADING INIT BUNDLE")
 	// Get bundle
 	bundle, err := client.GetServerInitBundle()
 	if err != nil {
@@ -355,7 +354,11 @@ func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) {
 		return
 	}
 	// Build API call
-	params, err := json.Marshal(bundle)
+	params_data := &e2ee_api.RequestUploadBundle{
+		UserID: client.Username,
+		Bundle: *bundle,
+	}
+	params, err := json.Marshal(params_data)
 	if err != nil {
 		fmt.Println("Could not marshal bundle:", err)
 		return
@@ -376,7 +379,6 @@ func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) {
 		fmt.Println("Could not send bundle:", err)
 		return
 	}
-	fmt.Println("SENT INIT BUNDLE")
 }
 
 // ================================== CONNECTION ===========================
