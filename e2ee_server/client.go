@@ -61,8 +61,10 @@ func (client *WsClient) HandleMessage(rawMessage []byte) {
 		client.HandleSendMessage(message.Params)
 	case "receive_message":
 		client.HandleReceiveMessage(message.Params)
-	case "user_is_registered":
-		client.HandleUserIsRegistered(message.Params)
+	case "status":
+		client.HandleUserStatus(message.Params)
+	case "upload_new_otps":
+		client.HandleUploadNewOTPs(message.Params)
 	}
 }
 
@@ -86,6 +88,17 @@ func (client *WsClient) Disconnect() {
 	close(client.send) // Close write pump
 }
 
+func (client *WsClient) HandleUploadNewOTPs(rawParams json.RawMessage) {
+	params := &api.RequestUploadOTPs{}
+	err := json.Unmarshal(rawParams, params)
+	if err != nil {
+		return
+	}
+	// Register OTPs
+	client.server.X3DHServer.ExpandOTPSet(client.username, params.OTPs)
+	fmt.Println("User", client.username, "uploaded #", len(params.OTPs), "new OTPs")
+}
+
 func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 	params := &api.RequestUserBundle{}
 	err := json.Unmarshal(rawParams, params)
@@ -97,6 +110,25 @@ func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 	bundle, ok := client.server.X3DHServer.GetClientBundle(params.UserID)
 	fmt.Println("User", client.username, "requested bundle for user", params.UserID, ":", ok)
 
+	// Notify recipient if otp is running low
+	count := client.server.X3DHServer.GetRemainingOTPCount(params.UserID)
+	if count < 3 {
+		// Notify user
+		fmt.Println("Notifying user", params.UserID, "that OTP is running low")
+		// Send notification
+		notification, err := buildOutboundMessage(&api.NotifyLowOTP{}, "notify_low_otp")
+		if err != nil {
+			fmt.Println("Error marshalling notification to notify_low_otp")
+			return
+		}
+		notificationBytes, err := json.Marshal(notification)
+		if err != nil {
+			fmt.Println("Error marshalling notification to notify_low_otp")
+			return
+		}
+		client.server.SendNotificationToUser(params.UserID, notificationBytes)
+	}
+	// Send response
 	response, err := buildOutboundMessage(&api.ResponseUserBundle{
 		Success: ok,
 		Bundle:  bundle,
@@ -111,6 +143,7 @@ func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 		return
 	}
 	client.send <- responseBytes
+
 }
 
 func (client *WsClient) HandleUploadBundle(rawParams json.RawMessage) {
@@ -179,6 +212,24 @@ func (client *WsClient) HandleSendMessage(rawParams json.RawMessage) {
 		return
 	}
 	client.send <- responseBytes
+	// Notify recipient of message only if successful
+	if !ok {
+		return
+	}
+	// Send notification
+	notification, err := buildOutboundMessage(&api.NotifyNewMessage{
+		SenderID: client.username,
+	}, "notify_new_message")
+	if err != nil {
+		fmt.Println("Error marshalling notification to notify_new_message")
+		return
+	}
+	notificationBytes, err := json.Marshal(notification)
+	if err != nil {
+		fmt.Println("Error marshalling notification to notify_new_message")
+		return
+	}
+	client.server.SendNotificationToUser(params.RecipientID, notificationBytes)
 }
 
 func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
@@ -226,27 +277,49 @@ func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
 	client.send <- responseBytes
 }
 
-func (client *WsClient) HandleUserIsRegistered(rawParams json.RawMessage) {
-	params := &api.RequestUserIsRegistered{}
-	err := json.Unmarshal(rawParams, params)
-	if err != nil {
-		return
-	}
+func (client *WsClient) HandleUserStatus(rawParams json.RawMessage) {
 	// Check if the user is registered
-	registered := client.server.X3DHServer.IsClientRegistered(params.UserID)
-	fmt.Println("User", client.username, "checked if user", params.UserID, "is registered")
+	//registered := client.server.X3DHServer.IsClientRegistered(params.UserID)
+	//fmt.Println("User", client.username, "checked if user", params.UserID, "is registered")
+
+	// Check if self is registered
+	registered := client.server.X3DHServer.IsClientRegistered(client.username)
+	fmt.Println("User", client.username, "checked if self is registered")
+
 	// Send response
-	response, err := buildOutboundMessage(&api.ResponseUserIsRegistered{
+	response, err := buildOutboundMessage(&api.ResponseUserStatus{
 		Success: registered,
-	}, "user_is_registered")
+	}, "status")
 	if err != nil {
-		fmt.Println("Error marshalling response to user_is_registered")
+		fmt.Println("Error marshalling response to status")
 		return
 	}
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
-		fmt.Println("Error marshalling success response to user_is_registered")
+		fmt.Println("Error marshalling success response to status")
 		return
 	}
 	client.send <- responseBytes
+	// If not registered, do not notify otp
+	if !registered {
+		return
+	}
+	// Notify recipient if otp is running low
+	count := client.server.X3DHServer.GetRemainingOTPCount(client.username)
+	if count < 3 {
+		// Notify user
+		fmt.Println("Notifying user", client.username, "that OTP is running low")
+		// Send notification
+		notification, err := buildOutboundMessage(&api.NotifyLowOTP{}, "notify_low_otp")
+		if err != nil {
+			fmt.Println("Error marshalling notification to notify_low_otp")
+			return
+		}
+		notificationBytes, err := json.Marshal(notification)
+		if err != nil {
+			fmt.Println("Error marshalling notification to notify_low_otp")
+			return
+		}
+		client.send <- notificationBytes
+	}
 }

@@ -11,6 +11,10 @@ type InboundMessage struct {
 	Params json.RawMessage `json:"params"`
 }
 
+type RequestUploadOTPs struct {
+	OTPs []x3dh_core.X3DHPublicOTP `json:"otps"`
+}
+
 type RequestUserBundle struct {
 	UserID string `json:"user_id"`
 }
@@ -20,8 +24,7 @@ type RequestUploadBundle struct {
 	Bundle x3dh_core.X3DHClientBundle `json:"bundle"`
 }
 
-type RequestUserIsRegistered struct {
-	UserID string `json:"user_id"`
+type RequestUserStatus struct {
 }
 
 type RequestSendMsg struct {
@@ -45,7 +48,7 @@ type ResponseUploadBundle struct {
 	Success bool `json:"success"`
 }
 
-type ResponseUserIsRegistered struct {
+type ResponseUserStatus struct {
 	Success bool `json:"success"`
 }
 
@@ -57,4 +60,10 @@ type ResponseReceiveMsg struct {
 	Success     bool                     `json:"success"`
 	SenderID    string                   `json:"sender_id"`
 	MessageData x3dh_core.InitialMessage `json:"message"`
+}
+
+type NotifyLowOTP struct{}
+
+type NotifyNewMessage struct {
+	SenderID string `json:"sender_id"`
 }

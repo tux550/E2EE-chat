@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/jedib0t/go-pretty/table"
@@ -412,7 +413,8 @@ func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, cont
 		// Get contact
 		contact := contacts.FindContactByUsername(sender)
 		if contact == nil {
-			fmt.Println("The following message is from an unknown contact: ", sender)
+			prettyLogRisky("Be cautious, the following message is from an unknown contact: " + sender)
+			//fmt.Println("The following message is from an unknown contact: ", sender)
 		}
 		// Decrypt message
 		plaintext, err := client.RecieveMessage(message)
@@ -422,10 +424,31 @@ func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, cont
 			continue
 		}
 		// Print message
-		fmt.Println("=== Message ===")
-		fmt.Println("Message from:", sender)
-		fmt.Println("Message:", string(plaintext))
-		fmt.Println("===============")
+		/*
+			fmt.Println("=== Message ===")
+			fmt.Println("Sender:", sender)
+			fmt.Println("Message:", string(plaintext))
+			fmt.Println("===============")
+			fmt.Println()*/
+		// Create and configure the table writer
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+
+		// Add rows to the table
+		t.AppendRows([]table.Row{
+			{"Sender", sender},
+			{"Message", string(plaintext)},
+		})
+
+		// Customize table appearance
+		t.SetStyle(table.StyleColoredBright)
+		t.Style().Format.Header = text.FormatDefault
+		t.Style().Options.SeparateRows = true
+		t.Style().Options.SeparateColumns = false
+
+		// Print the title and render the table
+		prettyTitle("=== Message ===")
+		t.Render()
 		fmt.Println()
 	}
 }
@@ -512,26 +535,19 @@ func sendAndAwaitWsResponse(c *websocket.Conn, params interface{}, method string
 	if err != nil {
 		return nil, err
 	}
-	// Await response
-	mt, message, err := c.ReadMessage()
-	if err != nil {
-		return nil, err
-	}
-	if mt != websocket.TextMessage {
-		return nil, fmt.Errorf("received non-text message")
-	}
-	// Unmarshal the message
-	response := &e2ee_api.OutboundMessage{}
-	err = json.Unmarshal(message, response)
-	if err != nil {
-		return nil, err
-	}
+	// Await response from server
+	// (message is in channel incomingResponses)
+	response := <-incomingResponses
+
 	// Check for success
 	if response.Method != method {
+		fmt.Println("Received wrong method. Expected:", method, "Received:", response.Method)
 		return nil, fmt.Errorf("received wrong method")
 	}
+
 	// DEBUG: Print recieved message
 	// fmt.Println("Received message:", string(message))
+
 	// Return params
 	return response.Params, nil
 }
@@ -644,7 +660,114 @@ func APIReceiveMessage(client *x3dh_client.X3DHClient, c *websocket.Conn) (*x3dh
 	return &params_response.MessageData, params_response.SenderID, nil
 }
 
+func APIGetStatus(client *x3dh_client.X3DHClient, c *websocket.Conn) (bool, error) {
+	// Build API call
+	params := &e2ee_api.RequestUserStatus{}
+	// Send And Await Response
+	response, err := sendAndAwaitWsResponse(c, params, "status")
+	if err != nil {
+		return false, err
+	}
+	// Parse params
+	params_response := &e2ee_api.ResponseUserStatus{}
+	err = json.Unmarshal(response, params_response)
+	if err != nil {
+		return false, err
+	}
+	// Return status
+	return params_response.Success, nil
+}
+
 // ================================== CONNECTION ===========================
+// Setup channels for incoming messages
+var incomingResponses = make(chan e2ee_api.OutboundMessage)
+var incomingNotifications = make(chan e2ee_api.OutboundMessage)
+
+func ReadIncomingMessages(c *websocket.Conn) {
+	for {
+		mt, message, err := c.ReadMessage()
+		if err != nil {
+			return
+		}
+		if mt == websocket.TextMessage {
+			// Unmarshal the message
+			response := &e2ee_api.OutboundMessage{}
+			err = json.Unmarshal(message, response)
+			if err != nil {
+				prettyLogRisky("Recieved invalid data from server")
+				continue
+			}
+			// Check if message is a notification (Method starts with notify_)
+			if strings.HasPrefix(response.Method, "notify_") {
+				incomingNotifications <- *response
+			} else {
+				incomingResponses <- *response
+			}
+		}
+	}
+}
+
+func APIUploadNewOTPs(client *x3dh_client.X3DHClient, c *websocket.Conn) (bool, error) {
+	// Get OTPs
+	otps, err := client.BatchGenerateOTPs(5)
+	if err != nil {
+		return false, err
+	}
+
+	// Build API call
+	params := &e2ee_api.RequestUploadOTPs{
+		OTPs: otps,
+	}
+
+	// Marshal params
+	marshalledParams, err := json.Marshal(params)
+	if err != nil {
+		return false, err
+	}
+
+	// Build API call
+	api_call := &e2ee_api.InboundMessage{
+		Method: "upload_new_otps",
+		Params: marshalledParams,
+	}
+
+	// Marshal
+	data, err := json.Marshal(api_call)
+	if err != nil {
+		return false, err
+	}
+
+	// Send request
+	err = c.WriteMessage(websocket.TextMessage, data)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func HandleNotifications(client *x3dh_client.X3DHClient, c *websocket.Conn) {
+	for {
+		// Wait for notification
+		notification := <-incomingNotifications
+		// Handle notification
+		switch notification.Method {
+		case "notify_low_otp":
+			fmt.Println()
+			prettyLogInfo("Low OTP. Sending more.")
+			APIUploadNewOTPs(client, c)
+			fmt.Println()
+		case "notify_new_message":
+			fmt.Println()
+			prettyLogInfo("<New message pending>")
+			fmt.Println()
+		default:
+			fmt.Println()
+			prettyLogRisky("Unknown notification")
+			fmt.Println()
+		}
+	}
+}
 
 func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 	// Set username as header
@@ -657,6 +780,9 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 		fmt.Println("Could not connect to server:", err)
 		return
 	}
+
+	// Start reading incoming messages
+	go ReadIncomingMessages(c)
 
 	// Deferred close
 	defer func() {
@@ -672,31 +798,33 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 		//fmt.Println("Saved client and contacts")
 	}()
 
-	// Parallel handle incoming messages
-	//go HandleIncomingMessages(client, c)
+	// Handle notifications in background
+	go HandleNotifications(client, c)
 
-	// Infinite loop for interface
-	APIUploadBundle(client, c)
-	Menu(client, contacts, c)
-	/*
-			// Read user input
-			var message string
-			fmt.Scanln(&message)
+	// Check Status
+	success, err := APIGetStatus(client, c)
+	if err != nil {
+		prettyLogRisky("Could not get status")
+		fmt.Println("Could not get status:", err)
+		return
+	}
 
-			// Check for exit
-			if message == "exit" {
-				return
-			}
-
-			// Send message
-			err = c.WriteMessage(websocket.BinaryMessage, []byte(message))
-			if err != nil {
-				fmt.Println("Could not send message:", err)
-				return
-			}
-			fmt.Println("Sent message:", message)
+	if !success {
+		prettyLogInfo("First time setup")
+		success, err := APIUploadBundle(client, c)
+		if err != nil {
+			prettyLogRisky("Could not upload bundle")
+			fmt.Println("Could not upload bundle:", err)
+			return
 		}
-	*/
+		if !success {
+			prettyLogRisky("Could not upload bundle")
+			fmt.Println("Could not upload bundle 2")
+			return
+		}
+	}
+	// Infinite loop for interface
+	Menu(client, contacts, c)
 }
 
 // ================================== MAIN ===========================

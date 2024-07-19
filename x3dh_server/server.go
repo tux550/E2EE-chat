@@ -42,6 +42,22 @@ func (s *Server) IsClientRegistered(clientID string) bool {
 	return ok
 }
 
+func (s *Server) GetRemainingOTPCount(clientID string) int {
+	c, ok := s.clients[clientID]
+	if !ok {
+		return 0
+	}
+	return len(c.Bundle.OtpSet)
+}
+
+func (s *Server) ExpandOTPSet(clientID string, otps []X3DHCore.X3DHPublicOTP) {
+	c, ok := s.clients[clientID]
+	if !ok {
+		return
+	}
+	c.Bundle.OtpSet = append(c.Bundle.OtpSet, otps...)
+}
+
 func (s *Server) GetClientBundle(clientID string) (X3DHCore.X3DHKeyBundle, bool) {
 	c, ok := s.clients[clientID]
 	if !ok {

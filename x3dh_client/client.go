@@ -227,3 +227,19 @@ func (c *X3DHClient) RecieveMessage(im *X3DHCore.InitialMessage) ([]byte, error)
 	// Return the plaintext
 	return plaintext, nil
 }
+
+func (c *X3DHClient) BatchGenerateOTPs(n int) ([]X3DHCore.X3DHPublicOTP, error) {
+	for i := 0; i < n; i++ {
+		err := c.generateOneTimePreKey()
+		if err != nil {
+			return nil, err
+		}
+	}
+	otp_set := make([]X3DHCore.X3DHPublicOTP, 0)
+	// Copy last n OTPs
+	for i := len(c.OneTimePreKeys) - n; i < len(c.OneTimePreKeys); i++ {
+		otp_set = append(otp_set, *c.OneTimePreKeys[i].PublicOTP())
+	}
+	// Return the OTP set
+	return otp_set, nil
+}

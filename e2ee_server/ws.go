@@ -40,6 +40,16 @@ func (server *WsServer) UnsetClient(client *WsClient) {
 	server.mu.Unlock()
 }
 
+func (server *WsServer) SendNotificationToUser(user string, message []byte) {
+	server.mu.Lock()
+	for client := range server.clients {
+		if client.username == user {
+			client.send <- message
+		}
+	}
+	server.mu.Unlock()
+}
+
 func (server *WsServer) connnect(w http.ResponseWriter, r *http.Request) {
 	// Get user fom header
 	user := r.Header.Get("User")
