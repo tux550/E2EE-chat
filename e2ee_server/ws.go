@@ -78,7 +78,7 @@ func (server *WsServer) checkPasswordHash(password, hash string) bool {
 }
 
 func (server *WsServer) authenticateUser(username, password string) bool {
-	collection := server.dbClient.Database("yourdatabase").Collection("users")
+	collection := server.dbClient.Database("x3dh_auth").Collection("users")
 
 	// Find the user in the database
 	var result struct {
