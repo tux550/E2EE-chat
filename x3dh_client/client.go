@@ -11,20 +11,20 @@ import (
 
 type X3DHClient struct {
 	// Username
-	Username string
+	Username string `json:"username"`
 	// Identity
-	IdentityKey X3DHCore.X3DHFullIK
+	IdentityKey X3DHCore.X3DHFullIK `json:"identityKey"`
 	// Signed Pre Key
-	SignedPreKey X3DHCore.X3DHFullSPK
+	SignedPreKey X3DHCore.X3DHFullSPK `json:"signedPreKey"`
 	// One Time Pre Keys
-	OneTimePreKeys []X3DHCore.X3DHFullOTP
+	OneTimePreKeys []X3DHCore.X3DHFullOTP `json:"oneTimePreKeys"`
 	// Counter
-	otpCounter int
+	OTPCounter int `json:"otpCounter"`
 }
 
 func NewClient() *X3DHClient {
 	return &X3DHClient{
-		otpCounter: 0,
+		OTPCounter: 0,
 	}
 }
 
@@ -38,7 +38,7 @@ func (c *X3DHClient) DebugPrint() {
 	for i, otp := range c.OneTimePreKeys {
 		fmt.Println("One Time Pre Key ", i, ": ", otp.OneTimePreKey.PublicKey)
 	}
-	fmt.Println("OTP Counter: ", c.otpCounter)
+	fmt.Println("OTP Counter: ", c.OTPCounter)
 	fmt.Println("=== End ===")
 }
 
@@ -105,14 +105,14 @@ func InitClient(username string) (*X3DHClient, error) {
 
 func (c *X3DHClient) generateOneTimePreKey() error {
 	// Generate one time pre key
-	otp, err := X3DHCore.GenerateFullOTP(c.otpCounter)
+	otp, err := X3DHCore.GenerateFullOTP(c.OTPCounter)
 	if err != nil {
 		return err
 	}
 	// Append the one time pre key
 	c.OneTimePreKeys = append(c.OneTimePreKeys, *otp)
 	// Increment the counter
-	c.otpCounter++
+	c.OTPCounter += 1
 	// Return
 	return nil
 }

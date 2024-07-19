@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/gorilla/websocket"
+	"github.com/jedib0t/go-pretty/table"
+	"github.com/jedib0t/go-pretty/text"
 	e2ee_api "tux.tech/e2ee/api"
 	x3dh_client "tux.tech/x3dh/client"
 	x3dh_core "tux.tech/x3dh/core"
@@ -18,10 +20,59 @@ var url = "ws://localhost:8765/ws"
 var contacts_filename = "contacts.json"
 var secrets_filename string
 
+// ================================== PRETTY PRINT ===========================
+func prettyAskString(question string) string {
+	fmt.Print(text.FgGreen.Sprintf(question))
+	var answer string
+	fmt.Scanln(&answer)
+	return answer
+}
+
+func prettyAskInt(question string) int {
+	fmt.Print(text.FgGreen.Sprintf(question))
+	var answer int
+	fmt.Scanln(&answer)
+	return answer
+}
+
+func prettyLogInfo(info string) {
+	fmt.Println(text.FgHiBlack.Sprintf(info))
+}
+
+func prettyLogRisky(info string) {
+	fmt.Println(text.FgHiRed.Sprintf(info))
+}
+
+func prettyTitle(title string) {
+	fmt.Println(text.FgHiCyan.Sprintf(title))
+}
+
 // ================================== STRUCTS ===========================
 type Contact struct {
 	Username  string
 	PublicKey x3dh_core.X3DHPublicIK
+}
+
+func (c Contact) PrettyPrint() {
+	// Create and configure the table writer
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"Field", "Value"})
+
+	// Add rows to the table
+	t.AppendRows([]table.Row{
+		{"Username", c.Username},
+		{"Public Key", base64.StdEncoding.EncodeToString(c.PublicKey.IdentityKey[:])},
+	})
+
+	// Customize table appearance
+	t.SetStyle(table.StyleColoredBright)
+	t.Style().Format.Header = text.FormatDefault
+	t.Style().Options.SeparateRows = true
+
+	// Print the title and render the table
+	prettyTitle("=== Contact ===")
+	t.Render()
 }
 
 func (c Contact) DebugPrint() {
@@ -141,10 +192,10 @@ func GetMyClient() (*x3dh_client.X3DHClient, error) {
 	_, err := os.Stat(secrets_filename)
 	if os.IsNotExist(err) {
 		// Create new secrets client
-		fmt.Println("Initialized new client")
-		fmt.Println("Enter your username: ")
-		var username string
-		fmt.Scanln(&username)
+		prettyLogInfo("No existing client found")
+		prettyLogInfo("Creating new client")
+		username := prettyAskString("Enter username: ")
+
 		client, err := x3dh_client.InitClient(username)
 		if err != nil {
 			return nil, err
@@ -157,7 +208,7 @@ func GetMyClient() (*x3dh_client.X3DHClient, error) {
 		return client, nil
 	} else {
 		// Load secrets from file
-		fmt.Println("Loaded existing client")
+		prettyLogInfo("Loaded existing client")
 		client, err := x3dh_client.LoadClient(secrets_filename)
 		if err != nil {
 			return nil, err
@@ -171,7 +222,8 @@ func GetMyContacts() (*Contacts, error) {
 	_, err := os.Stat(contacts_filename)
 	if os.IsNotExist(err) {
 		// Create new contacts
-		fmt.Println("Initialized new contacts")
+		prettyLogInfo("No existing contacts found")
+		prettyLogInfo("Creating new contacts")
 		contacts := InitContacts()
 		// Save contacts to file
 		err = SaveContacts(contacts, contacts_filename)
@@ -181,7 +233,7 @@ func GetMyContacts() (*Contacts, error) {
 		return contacts, nil
 	} else {
 		// Load contacts from file
-		fmt.Println("Loaded existing contacts")
+		prettyLogInfo("Loaded existing contacts")
 		contacts, err := LoadContacts(contacts_filename)
 		if err != nil {
 			return nil, err
@@ -192,7 +244,7 @@ func GetMyContacts() (*Contacts, error) {
 
 func SaveMyClient(client *x3dh_client.X3DHClient) error {
 	// Save secrets to file
-	fmt.Println("Saved client")
+	//fmt.Println("Saved client")
 	err := client.SaveClient(secrets_filename)
 	if err != nil {
 		return err
@@ -202,7 +254,7 @@ func SaveMyClient(client *x3dh_client.X3DHClient) error {
 
 func SaveMyContacts(contacts *Contacts) error {
 	// Save contacts to file
-	fmt.Println("Saved contacts")
+	//fmt.Println("Saved contacts")
 	err := SaveContacts(contacts, contacts_filename)
 	if err != nil {
 		return err
@@ -228,36 +280,59 @@ func HandleIncomingMessages(client *x3dh_client.X3DHClient, c *websocket.Conn) {
 
 // ================================== Options ===========================
 func MenuListContacts(contacts *Contacts) {
-	fmt.Println("=== Contacts ===")
-	for i, contact := range *contacts {
-		fmt.Println(i, contact.Username, base64.StdEncoding.EncodeToString(contact.PublicKey.IdentityKey[:]))
+	// Add title to table
+	fmt.Println(text.FgHiCyan.Sprintf("=== Contacts ==="))
+	if len(*contacts) == 0 {
+		fmt.Println("No contacts")
+		return
 	}
-	fmt.Println("===============")
+
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"#", "Username", "Public Key"})
+
+	for i, contact := range *contacts {
+		t.AppendRow([]interface{}{
+			i,
+			contact.Username,
+			base64.StdEncoding.EncodeToString(contact.PublicKey.IdentityKey[:]),
+		})
+	}
+
+	t.SetStyle(table.StyleColoredBright)
+	t.Style().Format.Header = text.FormatDefault
+	t.Style().Options.SeparateRows = true
+
+	t.Render()
+
 }
 
 func MenuAddContact(client *x3dh_client.X3DHClient, contacts *Contacts) {
 	// Read contact from file
-	fmt.Println("Enter contact file:")
-	var filename string
-	fmt.Scanln(&filename)
+	filename := prettyAskString("Enter contact file: ")
+
 	contact, err := ImportContactFromFile(filename)
 	if err != nil {
-		fmt.Println("Could not import contact from file:", err)
+		prettyLogRisky("Could not import contact from file")
+		//fmt.Println("Could not import contact from file:", err)
 		return
 	}
 	// Add contact to contacts
 	err = contacts.AddContact(*contact)
 	if err != nil {
-		fmt.Println("Contact already exists:", err)
+		prettyLogRisky("Contact already exists")
+		//fmt.Println("Contact already exists:", err)
 		return
 	}
 	// Save contacts
 	err = SaveMyContacts(contacts)
 	if err != nil {
-		fmt.Println("Could not save contacts:", err)
+		prettyLogRisky("Could not save contacts")
+		//fmt.Println("Could not save contacts:", err)
 		return
 	}
-	fmt.Println("Contact added")
+	prettyLogInfo("Contact added")
+	//fmt.Println("Contact added")
 }
 
 func MenuRemoveContact(contacts *Contacts) {
@@ -288,51 +363,37 @@ func MenuRemoveContact(contacts *Contacts) {
 
 func MenuChat(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn) {
 	// Select contact
-	fmt.Println("Enter contact id:")
-	var id int
-	fmt.Scanln(&id)
+	id := prettyAskInt("Enter contact id: ")
+
 	contact := contacts.GetContact(id)
 	// Write message
-	fmt.Println("Enter message:")
-	var message string
-	fmt.Scanln(&message)
+	message := prettyAskString("Enter message: ")
 	// Send message
 	success, err := APISendMessage(client, c, contact, []byte(message))
 	if err != nil {
-		fmt.Println("Could not send message:", err)
+		prettyLogRisky("Could not send message")
 		return
 	}
 	if !success {
-		fmt.Println("Could not send message")
+		prettyLogRisky("Could not send message")
 		return
 	}
 	// Success
-	fmt.Println("Message sent")
-
-	/*
-		// Get contact bundle
-		bundle, err := APIGetBundle(client, c, contact)
-		if err != nil {
-			fmt.Println("Could not get contact bundle:", err)
-			return
-		}
-		// Start chat
-		fmt.Println("Chatting with:")
-		contact.DebugPrint()
-		bundle.DebugPrint()
-	*/
+	prettyLogInfo("Message sent")
 }
 
 func MenuShareMyContact(client *x3dh_client.X3DHClient) {
 	// Get my contact
 	contact := GetMyContact(client)
+	// Pretty print my contact
+	contact.PrettyPrint()
 	// Export my contact to file
 	err := contact.ExportToFile("MyContact.json")
 	if err != nil {
-		fmt.Println("Could not export contact to file:", err)
+		prettyLogRisky("Could not export contact to file")
 		return
 	}
-	fmt.Println("Contact exported to MyContact.json")
+	prettyLogInfo("Contact exported to MyContact.json")
 }
 
 func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, contacts *Contacts) {
@@ -340,11 +401,12 @@ func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, cont
 		// Receive message
 		message, sender, err := APIReceiveMessage(client, c)
 		if err != nil {
-			fmt.Println("Could not receive message:", err)
+			prettyLogRisky("Could not receive message")
+			//fmt.Println("Could not receive message:", err)
 			return
 		}
 		if message == nil {
-			fmt.Println("No more messages")
+			prettyLogInfo("No more messages")
 			return
 		}
 		// Get contact
@@ -355,7 +417,7 @@ func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, cont
 		// Decrypt message
 		plaintext, err := client.RecieveMessage(message)
 		if err != nil {
-			fmt.Println("Failed to decrypt message from:", sender)
+			prettyLogRisky("Failed to decrypt message from: " + sender)
 			// Continue to next message
 			continue
 		}
@@ -369,38 +431,55 @@ func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, cont
 }
 
 // ================================== User Interface ===========================
+func showMenu() {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"#", "Options "})
+
+	menuItems := []struct {
+		Index int
+		Item  string
+	}{
+		{1, "List Contacts"},
+		{2, "Add Contact"},
+		{3, "Remove Contact"},
+		{4, "Send Message"},
+		{5, "Receive Messages"},
+		{6, "Share My Contact"},
+		{7, "Exit"},
+	}
+
+	for _, menuItem := range menuItems {
+		t.AppendRow([]interface{}{menuItem.Index, menuItem.Item})
+	}
+
+	t.SetStyle(table.StyleColoredBright)
+
+	// Add padding before render
+	fmt.Println()
+	fmt.Println(text.FgHiCyan.Sprintf("=== Menu ==="))
+	t.Render()
+}
+
 func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn) {
 	for {
-		fmt.Println("=== Menu ===")
-		fmt.Println("1. List Contacts")
-		fmt.Println("2. Add Contact")
-		fmt.Println("3. Remove Contact")
-		fmt.Println("4. Send Message")
-		fmt.Println("5. Recieve Messages")
-		fmt.Println("6. Share My Contact")
-		fmt.Println("7. Exit")
-
-		var choice int
-		fmt.Scanln(&choice)
+		showMenu()
+		choice := prettyAskInt("Enter choice: ")
+		// Add padding after choice
+		fmt.Println()
 
 		switch choice {
 		case 1:
-			fmt.Println("List Contacts")
 			MenuListContacts(contacts)
 		case 2:
-			fmt.Println("Add Contact")
 			MenuAddContact(client, contacts)
 		case 3:
-			fmt.Println("Remove Contact")
 			MenuRemoveContact(contacts)
 		case 4:
-			fmt.Println("Chat")
 			MenuChat(client, contacts, c)
 		case 5:
-			fmt.Println("Recieve Messages")
 			MenuReceiveMessages(client, c, contacts)
 		case 6:
-			fmt.Println("Share My Contact")
 			MenuShareMyContact(client)
 		case 7:
 			fmt.Println("Exit")
@@ -623,25 +702,20 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 // ================================== MAIN ===========================
 func main() {
 	// Select user file
-	fmt.Println("Enter user file:")
-	fmt.Scanln(&secrets_filename)
+	secrets_filename = prettyAskString("Enter user file: ")
 
 	// LOAD CLIENT
 	a, err := GetMyClient()
 	if err != nil {
-		fmt.Println("Could not get client:", err)
+		prettyLogRisky("Failed to load client!")
 		return
 	}
 	// LOAD CONTACTS
 	c, err := GetMyContacts()
 	if err != nil {
-		fmt.Println("Could not get contacts:", err)
+		prettyLogRisky("Failed to load contacts!")
 		return
 	}
-
-	// Debug Print Client
-	a.DebugPrint()
-
 	// Connect to server
 	ConnectToServer(a, c)
 }
