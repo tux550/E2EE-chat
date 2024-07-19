@@ -366,11 +366,16 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 }
 
 // ================================== API CALLS ===========================
-func sendAndAwaitWsResponse(c *websocket.Conn, params []byte, method string) (json.RawMessage, error) {
+func sendAndAwaitWsResponse(c *websocket.Conn, params interface{}, method string) (json.RawMessage, error) {
+	// Marshal params
+	marshalledParams, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
 	// Build API call
 	api_call := &e2ee_api.InboundMessage{
 		Method: method,
-		Params: params,
+		Params: marshalledParams,
 	}
 	// Marshal
 	data, err := json.Marshal(api_call)
@@ -413,13 +418,9 @@ func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) (bool, e
 		return false, err
 	}
 	// Build API call
-	params_data := &e2ee_api.RequestUploadBundle{
+	params := &e2ee_api.RequestUploadBundle{
 		UserID: client.Username,
 		Bundle: *bundle,
-	}
-	params, err := json.Marshal(params_data)
-	if err != nil {
-		return false, err
 	}
 	// Send And Await Response
 	response, err := sendAndAwaitWsResponse(c, params, "upload_bundle")
@@ -438,12 +439,8 @@ func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) (bool, e
 
 func APIGetBundle(client *x3dh_client.X3DHClient, c *websocket.Conn, contact Contact) (*x3dh_core.X3DHKeyBundle, error) {
 	// Build API call
-	params_data := &e2ee_api.RequestUserBundle{
+	params := &e2ee_api.RequestUserBundle{
 		UserID: contact.Username,
-	}
-	params, err := json.Marshal(params_data)
-	if err != nil {
-		return nil, err
 	}
 	// Send And Await Response
 	response, err := sendAndAwaitWsResponse(c, params, "get_bundle")
@@ -483,14 +480,9 @@ func APISendMessage(client *x3dh_client.X3DHClient, c *websocket.Conn, contact C
 		return false, err
 	}
 	// Build API call
-	params_data := &e2ee_api.RequestSendMsg{
+	params := &e2ee_api.RequestSendMsg{
 		RecipientID: contact.Username,
 		MessageData: *x3dhMessage,
-	}
-	// Marshal
-	params, err := json.Marshal(params_data)
-	if err != nil {
-		return false, err
 	}
 	// Send And Await Response
 	response, err := sendAndAwaitWsResponse(c, params, "send_message")

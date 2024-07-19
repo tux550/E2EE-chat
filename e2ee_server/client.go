@@ -66,6 +66,20 @@ func (client *WsClient) HandleMessage(rawMessage []byte) {
 	}
 }
 
+func buildOutboundMessage(params interface{}, method string) (*api.OutboundMessage, error) {
+	// Marshal
+	marshalledParams, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+	// Build API call
+	api_call := &api.OutboundMessage{
+		Method: method,
+		Params: marshalledParams,
+	}
+	return api_call, nil
+}
+
 func (client *WsClient) Disconnect() {
 	client.server.UnsetClient(client)
 	client.conn.Close()
@@ -82,15 +96,16 @@ func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 	// Get the bundle
 	bundle, ok := client.server.X3DHServer.GetClientBundle(params.UserID)
 	fmt.Println("User", client.username, "requested bundle for user", params.UserID, ":", ok)
-	response := &api.ResponseUserBundle{
+
+	response, err := buildOutboundMessage(&api.ResponseUserBundle{
 		Success: ok,
 		Bundle:  bundle,
+	}, "get_bundle")
+	if err != nil {
+		fmt.Println("Error marshalling response to get_bundle")
+		return
 	}
-	api_reply := &api.OutboundMessage{
-		Method: "get_bundle",
-		Params: response,
-	}
-	responseBytes, err := json.Marshal(api_reply)
+	responseBytes, err := json.Marshal(response)
 	if err != nil {
 		fmt.Println("Error marshalling fail response to get_bundle")
 		return
@@ -107,14 +122,15 @@ func (client *WsClient) HandleUploadBundle(rawParams json.RawMessage) {
 	// Check if the user is the same
 	if client.username != params.UserID {
 		fmt.Println("User", client.username, "attempted to upload bundle for user", params.UserID)
-		response := &api.ResponseUploadBundle{
+
+		response, err := buildOutboundMessage(&api.ResponseUploadBundle{
 			Success: false,
+		}, "upload_bundle")
+		if err != nil {
+			fmt.Println("Error marshalling response to upload_bundle")
+			return
 		}
-		api_reply := &api.OutboundMessage{
-			Method: "upload_bundle",
-			Params: response,
-		}
-		responseBytes, err := json.Marshal(api_reply)
+		responseBytes, err := json.Marshal(response)
 		if err != nil {
 			fmt.Println("Error marshalling fail response to upload_bundle")
 			return
@@ -125,14 +141,14 @@ func (client *WsClient) HandleUploadBundle(rawParams json.RawMessage) {
 	client.server.X3DHServer.RegisterClient(params.UserID, params.Bundle)
 	fmt.Println("User", client.username, "uploaded bundle for user", params.UserID)
 	// Send response
-	response := &api.ResponseUploadBundle{
+	response, err := buildOutboundMessage(&api.ResponseUploadBundle{
 		Success: true,
+	}, "upload_bundle")
+	if err != nil {
+		fmt.Println("Error marshalling response to upload_bundle")
+		return
 	}
-	api_reply := &api.OutboundMessage{
-		Method: "upload_bundle",
-		Params: response,
-	}
-	responseBytes, err := json.Marshal(api_reply)
+	responseBytes, err := json.Marshal(response)
 	if err != nil {
 		fmt.Println("Error marshalling success response to upload_bundle")
 		return
@@ -168,14 +184,14 @@ func (client *WsClient) HandleUserIsRegistered(rawParams json.RawMessage) {
 	registered := client.server.X3DHServer.IsClientRegistered(params.UserID)
 	fmt.Println("User", client.username, "checked if user", params.UserID, "is registered")
 	// Send response
-	response := &api.ResponseUserIsRegistered{
+	response, err := buildOutboundMessage(&api.ResponseUserIsRegistered{
 		Success: registered,
+	}, "user_is_registered")
+	if err != nil {
+		fmt.Println("Error marshalling response to user_is_registered")
+		return
 	}
-	api_reply := &api.OutboundMessage{
-		Method: "user_is_registered",
-		Params: response,
-	}
-	responseBytes, err := json.Marshal(api_reply)
+	responseBytes, err := json.Marshal(response)
 	if err != nil {
 		fmt.Println("Error marshalling success response to user_is_registered")
 		return
