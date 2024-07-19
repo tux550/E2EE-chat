@@ -163,7 +163,7 @@ func (client *WsClient) HandleSendMessage(rawParams json.RawMessage) {
 		return
 	}
 	// Send message
-	ok := client.server.X3DHServer.SendMessage(params.RecipientID, params.MessageData)
+	ok := client.server.X3DHServer.SendMessage(params.RecipientID, client.username, params.MessageData)
 	fmt.Println("User", client.username, "sent message to user", params.RecipientID, ":", ok)
 	// Send response
 	response, err := buildOutboundMessage(&api.ResponseSendMsg{
@@ -188,7 +188,42 @@ func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
 		return
 	}
 	// Unqueue message
-
+	messageData, ok := client.server.X3DHServer.GetMessage(client.username)
+	if !ok {
+		fmt.Println("User", client.username, "requested message but none available")
+		// Send response
+		response, err := buildOutboundMessage(&api.ResponseReceiveMsg{
+			Success: false,
+		}, "receive_message")
+		if err != nil {
+			fmt.Println("Error marshalling response to receive_message")
+			return
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			fmt.Println("Error marshalling fail response to receive_message")
+			return
+		}
+		client.send <- responseBytes
+		return
+	}
+	fmt.Println("User", client.username, "received message from user", messageData.SenderID)
+	// Send response
+	response, err := buildOutboundMessage(&api.ResponseReceiveMsg{
+		Success:     true,
+		SenderID:    messageData.SenderID,
+		MessageData: messageData.Message,
+	}, "receive_message")
+	if err != nil {
+		fmt.Println("Error marshalling response to receive_message")
+		return
+	}
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println("Error marshalling success response to receive_message")
+		return
+	}
+	client.send <- responseBytes
 }
 
 func (client *WsClient) HandleUserIsRegistered(rawParams json.RawMessage) {

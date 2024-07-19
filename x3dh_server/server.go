@@ -4,11 +4,16 @@ import (
 	X3DHCore "tux.tech/x3dh/core"
 )
 
+type MessageData struct {
+	SenderID string
+	Message  X3DHCore.InitialMessage
+}
+
 type ClientData struct {
 	// Bundle
 	Bundle X3DHCore.X3DHClientBundle
 	// Queue
-	Queue []X3DHCore.InitialMessage
+	Queue []MessageData
 }
 
 type Server struct {
@@ -24,7 +29,7 @@ func NewServer() *Server {
 func NewClientData(bundle X3DHCore.X3DHClientBundle) *ClientData {
 	return &ClientData{
 		Bundle: bundle,
-		Queue:  make([]X3DHCore.InitialMessage, 0),
+		Queue:  make([]MessageData, 0),
 	}
 }
 
@@ -61,22 +66,25 @@ func (s *Server) GetClientBundle(clientID string) (X3DHCore.X3DHKeyBundle, bool)
 	}, true
 }
 
-func (s *Server) SendMessage(clientID string, msg X3DHCore.InitialMessage) bool {
-	c, ok := s.clients[clientID]
+func (s *Server) SendMessage(recipientID string, senderID string, msg X3DHCore.InitialMessage) bool {
+	c, ok := s.clients[recipientID]
 	if !ok {
 		return false
 	}
-	c.Queue = append(c.Queue, msg)
+	c.Queue = append(c.Queue, MessageData{
+		SenderID: senderID,
+		Message:  msg,
+	})
 	return true
 }
 
-func (s *Server) GetMessage(clientID string) (X3DHCore.InitialMessage, bool) {
+func (s *Server) GetMessage(clientID string) (MessageData, bool) {
 	c, ok := s.clients[clientID]
 	if !ok {
-		return X3DHCore.InitialMessage{}, false
+		return MessageData{}, false
 	}
 	if len(c.Queue) == 0 {
-		return X3DHCore.InitialMessage{}, false
+		return MessageData{}, false
 	}
 	msg := c.Queue[0]
 	c.Queue = c.Queue[1:]

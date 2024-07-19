@@ -83,6 +83,15 @@ func (c Contacts) GetContact(id int) Contact {
 	return c[id]
 }
 
+func (c Contacts) FindContactByUsername(username string) *Contact {
+	for _, contact := range c {
+		if contact.Username == username {
+			return &contact
+		}
+	}
+	return nil
+}
+
 func InitContacts() *Contacts {
 	return &Contacts{}
 }
@@ -326,6 +335,39 @@ func MenuShareMyContact(client *x3dh_client.X3DHClient) {
 	fmt.Println("Contact exported to MyContact.json")
 }
 
+func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, contacts *Contacts) {
+	for {
+		// Receive message
+		message, sender, err := APIReceiveMessage(client, c)
+		if err != nil {
+			fmt.Println("Could not receive message:", err)
+			return
+		}
+		if message == nil {
+			fmt.Println("No more messages")
+			return
+		}
+		// Get contact
+		contact := contacts.FindContactByUsername(sender)
+		if contact == nil {
+			fmt.Println("The following message is from an unknown contact: ", sender)
+		}
+		// Decrypt message
+		plaintext, err := client.RecieveMessage(message)
+		if err != nil {
+			fmt.Println("Failed to decrypt message from:", sender)
+			// Continue to next message
+			continue
+		}
+		// Print message
+		fmt.Println("=== Message ===")
+		fmt.Println("Message from:", sender)
+		fmt.Println("Message:", string(plaintext))
+		fmt.Println("===============")
+		fmt.Println()
+	}
+}
+
 // ================================== User Interface ===========================
 func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn) {
 	for {
@@ -356,6 +398,7 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 			MenuChat(client, contacts, c)
 		case 5:
 			fmt.Println("Recieve Messages")
+			MenuReceiveMessages(client, c, contacts)
 		case 6:
 			fmt.Println("Share My Contact")
 			MenuShareMyContact(client)
@@ -502,24 +545,24 @@ func APISendMessage(client *x3dh_client.X3DHClient, c *websocket.Conn, contact C
 	return params_response.Success, nil
 }
 
-func APIReceiveMessage(client *x3dh_client.X3DHClient, c *websocket.Conn, contact Contact) (*x3dh_core.InitialMessage, bool, error) {
+func APIReceiveMessage(client *x3dh_client.X3DHClient, c *websocket.Conn) (*x3dh_core.InitialMessage, string, error) {
 	// Send And Await Response
 	response, err := sendAndAwaitWsResponse(c, e2ee_api.RequestReceiveMsg{}, "receive_message")
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 	// Parse params
 	params_response := &e2ee_api.ResponseReceiveMsg{}
 	err = json.Unmarshal(response, params_response)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 	// End of queue
-	if params_response.EndOfQueue {
-		return nil, true, nil
+	if !params_response.Success {
+		return nil, "", nil
 	}
-	// Return status
-	return &params_response.MessageData, false, nil
+	// Return message data
+	return &params_response.MessageData, params_response.SenderID, nil
 }
 
 // ================================== CONNECTION ===========================
