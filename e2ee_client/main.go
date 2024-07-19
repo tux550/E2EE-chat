@@ -776,10 +776,15 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 	header := http.Header{}
 	header.Add("User", client.Username)
 
+	// Get password
+	password := prettyAskString("Enter password: ")
+	header.Add("Password", password)
+
 	// Connect to server
 	c, _, err := websocket.DefaultDialer.Dial(url, header)
 	if err != nil {
-		fmt.Println("Could not connect to server:", err)
+		prettyLogRisky("Connection failed")
+		//fmt.Println("Could not connect to server:", err)
 		return
 	}
 
