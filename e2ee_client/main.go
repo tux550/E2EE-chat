@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,7 +18,7 @@ import (
 )
 
 // ================================== CONFIG ===========================
-var url = "ws://localhost:8765/ws"
+var url = "wss://localhost:8765/ws"
 var contacts_filename = "contacts.json"
 var secrets_filename string
 
@@ -453,6 +454,28 @@ func MenuReceiveMessages(client *x3dh_client.X3DHClient, c *websocket.Conn, cont
 	}
 }
 
+func MenuHelp() {
+	fmt.Println()
+	fmt.Printf("=== Welcome to the E2EE Client ===\n")
+	fmt.Printf("This is a simple CLI client for end-to-end encryption.\n")
+	fmt.Printf("It uses the X3DH protocol to establish a secure connection.\n")
+
+	fmt.Println()
+	fmt.Println("=== Security Notice ===")
+	fmt.Println("This client ONLY guarantees secure communication between clients that have previously exchanged and verified their public keys.")
+	fmt.Println("It is the user's responsibility to ensure that the public keys are correct and have not been tampered with.")
+
+	fmt.Println()
+	fmt.Printf("=== Menu Options ===\n")
+	fmt.Println("List Contacts: List all contacts")
+	fmt.Println("Add Contact: Add a new contact")
+	fmt.Println("Remove Contact: Remove a contact")
+	fmt.Println("Send Message: Send a message to a contact")
+	fmt.Println("Receive Messages: Receive all messages")
+	fmt.Println("Share My Contact: Export my contact to a file")
+	fmt.Println("Exit: Exit the program")
+}
+
 // ================================== User Interface ===========================
 func showMenu() {
 	t := table.NewWriter()
@@ -469,7 +492,8 @@ func showMenu() {
 		{4, "Send Message"},
 		{5, "Receive Messages"},
 		{6, "Share My Contact"},
-		{7, "Exit"},
+		{7, "Help"},
+		{8, "Exit"},
 	}
 
 	for _, menuItem := range menuItems {
@@ -505,6 +529,8 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 		case 6:
 			MenuShareMyContact(client)
 		case 7:
+			MenuHelp()
+		case 8:
 			fmt.Println("Exit")
 			return
 		default:
@@ -780,11 +806,17 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 	password := prettyAskString("Enter password: ")
 	header.Add("Password", password)
 
+	// Create a custom dialer with TLS configuration if needed
+	dialer := websocket.DefaultDialer
+	dialer.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true, // Set to true if you're using a self-signed certificate for testing
+	}
+
 	// Connect to server
-	c, _, err := websocket.DefaultDialer.Dial(url, header)
+	c, _, err := dialer.Dial(url, header)
 	if err != nil {
-		prettyLogRisky("Connection failed")
-		//fmt.Println("Could not connect to server:", err)
+		//prettyLogRisky("Connection failed")
+		fmt.Println("Could not connect to server:", err)
 		return
 	}
 
