@@ -88,6 +88,20 @@ func (client *WsClient) Disconnect() {
 	close(client.send) // Close write pump
 }
 
+func getLowOTPNotification() []byte {
+	notification, err := buildOutboundMessage(&api.NotifyLowOTP{}, "notify_low_otp")
+	if err != nil {
+		fmt.Println("Error marshalling notification to notify_low_otp")
+		return nil
+	}
+	notificationBytes, err := json.Marshal(notification)
+	if err != nil {
+		fmt.Println("Error marshalling notification to notify_low_otp")
+		return nil
+	}
+	return notificationBytes
+}
+
 func (client *WsClient) HandleUploadNewOTPs(rawParams json.RawMessage) {
 	params := &api.RequestUploadOTPs{}
 	err := json.Unmarshal(rawParams, params)
@@ -124,16 +138,7 @@ func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 		// Notify user
 		fmt.Println("Notifying user", params.UserID, "that OTP is running low")
 		// Send notification
-		notification, err := buildOutboundMessage(&api.NotifyLowOTP{}, "notify_low_otp")
-		if err != nil {
-			fmt.Println("Error marshalling notification to notify_low_otp")
-			return
-		}
-		notificationBytes, err := json.Marshal(notification)
-		if err != nil {
-			fmt.Println("Error marshalling notification to notify_low_otp")
-			return
-		}
+		notificationBytes := getLowOTPNotification()
 		client.server.SendNotificationToUser(params.UserID, notificationBytes)
 	}
 	// Send response
@@ -330,16 +335,7 @@ func (client *WsClient) HandleUserStatus(rawParams json.RawMessage) {
 		// Notify user
 		fmt.Println("Notifying user", client.username, "that OTP is running low")
 		// Send notification
-		notification, err := buildOutboundMessage(&api.NotifyLowOTP{}, "notify_low_otp")
-		if err != nil {
-			fmt.Println("Error marshalling notification to notify_low_otp")
-			return
-		}
-		notificationBytes, err := json.Marshal(notification)
-		if err != nil {
-			fmt.Println("Error marshalling notification to notify_low_otp")
-			return
-		}
+		notificationBytes := getLowOTPNotification()
 		client.send <- notificationBytes
 	}
 }
