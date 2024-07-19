@@ -710,6 +710,8 @@ func ReadIncomingMessages(c *websocket.Conn) {
 func APIUploadNewOTPs(client *x3dh_client.X3DHClient, c *websocket.Conn) (bool, error) {
 	// Get OTPs
 	otps, err := client.BatchGenerateOTPs(5)
+	// Save client after generating OTPs
+	SaveMyClient(client)
 	if err != nil {
 		return false, err
 	}
