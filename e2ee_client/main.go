@@ -202,6 +202,7 @@ func SaveMyContacts(contacts *Contacts) error {
 }
 
 // ================================== HANDLE INCOMING MESSAGES ===========================
+/*
 func HandleIncomingMessages(client *x3dh_client.X3DHClient, c *websocket.Conn) {
 	for {
 		mt, message, err := c.ReadMessage()
@@ -214,6 +215,7 @@ func HandleIncomingMessages(client *x3dh_client.X3DHClient, c *websocket.Conn) {
 		}
 	}
 }
+*/
 
 // ================================== Options ===========================
 func MenuListContacts(contacts *Contacts) {
@@ -275,23 +277,41 @@ func MenuRemoveContact(contacts *Contacts) {
 	fmt.Println("Contact removed")
 }
 
-func MenuSendMessage(client *x3dh_client.X3DHClient, contacts *Contacts) {
-	// Read contact id
+func MenuChat(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn) {
+	// Select contact
 	fmt.Println("Enter contact id:")
 	var id int
 	fmt.Scanln(&id)
-	// Get contact
 	contact := contacts.GetContact(id)
-	fmt.Println("Sending message to:")
-	contact.DebugPrint()
-	// Read message
+	// Write message
 	fmt.Println("Enter message:")
 	var message string
 	fmt.Scanln(&message)
-	// TODO
-	// Get contact data from server
-	// Encrypt message
 	// Send message
+	success, err := APISendMessage(client, c, contact, []byte(message))
+	if err != nil {
+		fmt.Println("Could not send message:", err)
+		return
+	}
+	if !success {
+		fmt.Println("Could not send message")
+		return
+	}
+	// Success
+	fmt.Println("Message sent")
+
+	/*
+		// Get contact bundle
+		bundle, err := APIGetBundle(client, c, contact)
+		if err != nil {
+			fmt.Println("Could not get contact bundle:", err)
+			return
+		}
+		// Start chat
+		fmt.Println("Chatting with:")
+		contact.DebugPrint()
+		bundle.DebugPrint()
+	*/
 }
 
 func MenuShareMyContact(client *x3dh_client.X3DHClient) {
@@ -331,7 +351,8 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 			fmt.Println("Remove Contact")
 			MenuRemoveContact(contacts)
 		case 4:
-			fmt.Println("Send Message")
+			fmt.Println("Chat")
+			MenuChat(client, contacts, c)
 		case 5:
 			fmt.Println("Share My Contact")
 			MenuShareMyContact(client)
@@ -345,13 +366,51 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 }
 
 // ================================== API CALLS ===========================
+func sendAndAwaitWsResponse(c *websocket.Conn, params []byte, method string) (json.RawMessage, error) {
+	// Build API call
+	api_call := &e2ee_api.InboundMessage{
+		Method: method,
+		Params: params,
+	}
+	// Marshal
+	data, err := json.Marshal(api_call)
+	if err != nil {
+		return nil, err
+	}
+	// Send request
+	err = c.WriteMessage(websocket.TextMessage, data)
+	if err != nil {
+		return nil, err
+	}
+	// Await response
+	mt, message, err := c.ReadMessage()
+	if err != nil {
+		return nil, err
+	}
+	if mt != websocket.TextMessage {
+		return nil, fmt.Errorf("received non-text message")
+	}
+	// Unmarshal the message
+	response := &e2ee_api.OutboundMessage{}
+	err = json.Unmarshal(message, response)
+	if err != nil {
+		return nil, err
+	}
+	// Check for success
+	if response.Method != method {
+		return nil, fmt.Errorf("received wrong method")
+	}
+	// DEBUG: Print recieved message
+	// fmt.Println("Received message:", string(message))
+	// Return params
+	return response.Params, nil
+}
 
-func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) {
+func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) (bool, error) {
 	// Get bundle
 	bundle, err := client.GetServerInitBundle()
 	if err != nil {
-		fmt.Println("Could not get bundle:", err)
-		return
+		return false, err
 	}
 	// Build API call
 	params_data := &e2ee_api.RequestUploadBundle{
@@ -360,25 +419,92 @@ func APIUploadBundle(client *x3dh_client.X3DHClient, c *websocket.Conn) {
 	}
 	params, err := json.Marshal(params_data)
 	if err != nil {
-		fmt.Println("Could not marshal bundle:", err)
-		return
+		return false, err
 	}
-	api_call := &e2ee_api.InboundMessage{
-		Method: "upload_bundle",
-		Params: params,
-	}
-	// Marshal the API call to JSON
-	data, err := json.Marshal(api_call)
+	// Send And Await Response
+	response, err := sendAndAwaitWsResponse(c, params, "upload_bundle")
 	if err != nil {
-		fmt.Println("Could not marshal API call:", err)
-		return
+		return false, err
 	}
-	// Send bundle
-	err = c.WriteMessage(websocket.TextMessage, data)
+	// Parse params
+	params_response := &e2ee_api.ResponseUploadBundle{}
+	err = json.Unmarshal(response, params_response)
 	if err != nil {
-		fmt.Println("Could not send bundle:", err)
-		return
+		return false, err
 	}
+	// Return status
+	return params_response.Success, nil
+}
+
+func APIGetBundle(client *x3dh_client.X3DHClient, c *websocket.Conn, contact Contact) (*x3dh_core.X3DHKeyBundle, error) {
+	// Build API call
+	params_data := &e2ee_api.RequestUserBundle{
+		UserID: contact.Username,
+	}
+	params, err := json.Marshal(params_data)
+	if err != nil {
+		return nil, err
+	}
+	// Send And Await Response
+	response, err := sendAndAwaitWsResponse(c, params, "get_bundle")
+	if err != nil {
+		return nil, err
+	}
+	// Parse params
+	params_response := &e2ee_api.ResponseUserBundle{}
+	err = json.Unmarshal(response, params_response)
+	if err != nil {
+		return nil, err
+	}
+	// Success
+	if !params_response.Success {
+		return nil, fmt.Errorf("failed to get bundle")
+	}
+	// Validate bundle
+	if !params_response.Bundle.IK.IdentityKey.Equal(contact.PublicKey.IdentityKey) {
+		return nil, fmt.Errorf("bundle identity key does not match contact public key")
+	}
+	if !params_response.Bundle.Validate() {
+		return nil, fmt.Errorf("failed to validate bundle")
+	}
+	// Return status
+	return &params_response.Bundle, nil
+}
+
+func APISendMessage(client *x3dh_client.X3DHClient, c *websocket.Conn, contact Contact, message []byte) (bool, error) {
+	// Get contact bundle
+	bundle, err := APIGetBundle(client, c, contact)
+	if err != nil {
+		return false, err
+	}
+	// Encrypt message
+	x3dhMessage, err := client.BuildMessage(bundle, message)
+	if err != nil {
+		return false, err
+	}
+	// Build API call
+	params_data := &e2ee_api.RequestSendMsg{
+		RecipientID: contact.Username,
+		MessageData: *x3dhMessage,
+	}
+	// Marshal
+	params, err := json.Marshal(params_data)
+	if err != nil {
+		return false, err
+	}
+	// Send And Await Response
+	response, err := sendAndAwaitWsResponse(c, params, "send_message")
+	if err != nil {
+		return false, err
+	}
+	// Parse params
+	params_response := &e2ee_api.ResponseSendMsg{}
+	err = json.Unmarshal(response, params_response)
+	if err != nil {
+		return false, err
+	}
+	// Return status
+	return params_response.Success, nil
 }
 
 // ================================== CONNECTION ===========================

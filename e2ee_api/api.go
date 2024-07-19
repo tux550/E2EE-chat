@@ -32,8 +32,8 @@ type RequestSendMsg struct {
 type RequestReceiveMsg struct{}
 
 type OutboundMessage struct {
-	Method string      `json:"method"`
-	Params interface{} `json:"params"`
+	Method string          `json:"method"`
+	Params json.RawMessage `json:"params"`
 }
 
 type ResponseUserBundle struct {
