@@ -334,8 +334,9 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 		fmt.Println("2. Add Contact")
 		fmt.Println("3. Remove Contact")
 		fmt.Println("4. Send Message")
-		fmt.Println("5. Share My Contact")
-		fmt.Println("6. Exit")
+		fmt.Println("5. Recieve Messages")
+		fmt.Println("6. Share My Contact")
+		fmt.Println("7. Exit")
 
 		var choice int
 		fmt.Scanln(&choice)
@@ -354,9 +355,11 @@ func Menu(client *x3dh_client.X3DHClient, contacts *Contacts, c *websocket.Conn)
 			fmt.Println("Chat")
 			MenuChat(client, contacts, c)
 		case 5:
+			fmt.Println("Recieve Messages")
+		case 6:
 			fmt.Println("Share My Contact")
 			MenuShareMyContact(client)
-		case 6:
+		case 7:
 			fmt.Println("Exit")
 			return
 		default:
@@ -497,6 +500,26 @@ func APISendMessage(client *x3dh_client.X3DHClient, c *websocket.Conn, contact C
 	}
 	// Return status
 	return params_response.Success, nil
+}
+
+func APIReceiveMessage(client *x3dh_client.X3DHClient, c *websocket.Conn, contact Contact) (*x3dh_core.InitialMessage, bool, error) {
+	// Send And Await Response
+	response, err := sendAndAwaitWsResponse(c, e2ee_api.RequestReceiveMsg{}, "receive_message")
+	if err != nil {
+		return nil, false, err
+	}
+	// Parse params
+	params_response := &e2ee_api.ResponseReceiveMsg{}
+	err = json.Unmarshal(response, params_response)
+	if err != nil {
+		return nil, false, err
+	}
+	// End of queue
+	if params_response.EndOfQueue {
+		return nil, true, nil
+	}
+	// Return status
+	return &params_response.MessageData, false, nil
 }
 
 // ================================== CONNECTION ===========================

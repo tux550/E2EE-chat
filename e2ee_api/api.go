@@ -54,6 +54,7 @@ type ResponseSendMsg struct {
 }
 
 type ResponseReceiveMsg struct {
+	Success     bool                     `json:"success"`
 	SenderID    string                   `json:"sender_id"`
 	MessageData x3dh_core.InitialMessage `json:"message"`
 }

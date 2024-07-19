@@ -162,7 +162,23 @@ func (client *WsClient) HandleSendMessage(rawParams json.RawMessage) {
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+	// Send message
+	ok := client.server.X3DHServer.SendMessage(params.RecipientID, params.MessageData)
+	fmt.Println("User", client.username, "sent message to user", params.RecipientID, ":", ok)
+	// Send response
+	response, err := buildOutboundMessage(&api.ResponseSendMsg{
+		Success: ok,
+	}, "send_message")
+	if err != nil {
+		fmt.Println("Error marshalling response to send_message")
+		return
+	}
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println("Error marshalling success response to send_message")
+		return
+	}
+	client.send <- responseBytes
 }
 
 func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
@@ -171,7 +187,8 @@ func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
 	if err != nil {
 		return
 	}
-	// TODO: Implement
+	// Unqueue message
+
 }
 
 func (client *WsClient) HandleUserIsRegistered(rawParams json.RawMessage) {
