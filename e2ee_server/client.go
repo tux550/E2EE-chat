@@ -107,11 +107,19 @@ func (client *WsClient) HandleGetUserBundle(rawParams json.RawMessage) {
 	}
 
 	// Get the bundle
-	bundle, ok := client.server.X3DHServer.GetClientBundle(params.UserID)
+	bundle, ok, err := client.server.X3DHServer.GetClientBundle(params.UserID)
+	if err != nil {
+		fmt.Println("Db error getting bundle for user", params.UserID)
+		return
+	}
 	fmt.Println("User", client.username, "requested bundle for user", params.UserID, ":", ok)
 
 	// Notify recipient if otp is running low
-	count := client.server.X3DHServer.GetRemainingOTPCount(params.UserID)
+	count, err := client.server.X3DHServer.GetRemainingOTPCount(params.UserID)
+	if err != nil {
+		fmt.Println("Error getting remaining OTP count for user", params.UserID)
+		return
+	}
 	if count < 3 {
 		// Notify user
 		fmt.Println("Notifying user", params.UserID, "that OTP is running low")
@@ -239,7 +247,11 @@ func (client *WsClient) HandleReceiveMessage(rawParams json.RawMessage) {
 		return
 	}
 	// Unqueue message
-	messageData, ok := client.server.X3DHServer.GetMessage(client.username)
+	messageData, ok, err := client.server.X3DHServer.GetMessage(client.username)
+	if err != nil {
+		fmt.Println("Error getting message for user", client.username)
+		return
+	}
 	if !ok {
 		fmt.Println("User", client.username, "requested message but none available")
 		// Send response
@@ -283,7 +295,11 @@ func (client *WsClient) HandleUserStatus(rawParams json.RawMessage) {
 	//fmt.Println("User", client.username, "checked if user", params.UserID, "is registered")
 
 	// Check if self is registered
-	registered := client.server.X3DHServer.IsClientRegistered(client.username)
+	registered, err := client.server.X3DHServer.IsClientRegistered(client.username)
+	if err != nil {
+		fmt.Println("Error checking if user", client.username, "is registered")
+		return
+	}
 	fmt.Println("User", client.username, "checked if self is registered")
 
 	// Send response
@@ -305,7 +321,11 @@ func (client *WsClient) HandleUserStatus(rawParams json.RawMessage) {
 		return
 	}
 	// Notify recipient if otp is running low
-	count := client.server.X3DHServer.GetRemainingOTPCount(client.username)
+	count, err := client.server.X3DHServer.GetRemainingOTPCount(client.username)
+	if err != nil {
+		fmt.Println("Error getting remaining OTP count for user", client.username)
+		return
+	}
 	if count < 3 {
 		// Notify user
 		fmt.Println("Notifying user", client.username, "that OTP is running low")
