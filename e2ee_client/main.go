@@ -2,9 +2,11 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -806,9 +808,21 @@ func ConnectToServer(client *x3dh_client.X3DHClient, contacts *Contacts) {
 	password := prettyAskString("Enter password: ")
 	header.Add("Password", password)
 
+	// Load the server's certificate
+	caCert, err := ioutil.ReadFile("../certs/server.crt")
+	if err != nil {
+		fmt.Println("Error reading CA certificate:", err)
+		return
+	}
+
+	// Create a certificate pool and add the server's certificate
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
 	// Create a custom dialer with TLS configuration if needed
 	dialer := websocket.DefaultDialer
 	dialer.TLSClientConfig = &tls.Config{
+		//RootCAs: caCertPool,
 		InsecureSkipVerify: true, // Set to true if you're using a self-signed certificate for testing
 	}
 
