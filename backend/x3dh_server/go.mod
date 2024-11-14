@@ -1,6 +1,6 @@
 module tux.tech/x3dh/server
 
-go 1.22.2
+go 1.23
 
 replace tux.tech/x3dh/core => ../x3dh_core
 

@@ -1,6 +1,6 @@
 module tux.tech/x3dh/core
 
-go 1.22.2
+go 1.23
 
 require (
 	go.step.sm/crypto v0.47.0

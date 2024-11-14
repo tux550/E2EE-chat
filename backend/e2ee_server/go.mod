@@ -1,6 +1,6 @@
 module tux.tech/e2ee/server
 
-go 1.22.2
+go 1.23
 
 replace tux.tech/e2ee/api => ../e2ee_api
 
