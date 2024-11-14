@@ -5,8 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aws/aws-lambda-go/events"
-
 	api "tux.tech/e2ee/api"
 )
 
@@ -20,51 +18,59 @@ func NewAPIHandler(server *Server) *APIHandler {
 	}
 }
 
-func (h *APIHandler) getConnectionEntry(request events.APIGatewayWebsocketProxyRequest) (*ConnectionEntry, error) {
-	// Get connection ID
-	connectionID := request.RequestContext.ConnectionID
-	// Get connection entry
-	entry, err := h.server.memdb.GetConnection(connectionID)
-	if err != nil {
-		return nil, err
-	}
-	return entry, nil
+// WS request forwarded by API Gateway
+type HTTPNormalizedRequest struct {
+	ConnectionID string `json:"connectionId"`
+	// Raw json
+	Body json.RawMessage `json:"body"`
 }
 
-// LAMBDA API
-func (h *APIHandler) HandleRequests(request events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
-	// Parse JSON
-	message := &api.InboundMessage{}
-	err := json.Unmarshal([]byte(request.Body), message)
+// API
+func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
+	// Parse request
+	request := HTTPNormalizedRequest{}
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
+		log.Println("Error decoding request:", err)
+		http.Error(w, "Error decoding request", http.StatusBadRequest)
+		return
+	}
+	// Parse post body
+	message := &api.InboundMessage{}
+	err = json.Unmarshal([]byte(request.Body), message)
+	if err != nil {
+		log.Println("Error parsing message:", err)
+		http.Error(w, "Error parsing message", http.StatusBadRequest)
+		return
 	}
 	// Handle message
 	switch message.Method {
-	case "echo":
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusOK,
-			Body:       request.Body,
-		}, nil
-	case "get_bundle":
-		return h.HandleGetBundle(request, message.Params)
-	case "upload_bundle":
-		return h.HandleUploadBundle(request, message.Params)
-	/*
-		case "send_message":
-			return h.HandleSendMessage(request, message.Params)
-		case "receive_message":
-			return h.HandleReceiveMessage(request, message.Params)
-		case "status":
-			return h.HandleStatus(request, message.Params)
-		case "upload_new_otps":
-			return h.HandleUploadNewOTPs(request, message.Params)
-	*/
 	default:
-		return events.APIGatewayProxyResponse{}, nil
+		// ECHO
+		h.handleEcho(w, message.Params) // Handlers must also recieve connectionID to be able to reply
+		return
+		/*
+				case "get_bundle":
+					return h.HandleGetBundle(request, message.Params)
+				case "upload_bundle":
+					return h.HandleUploadBundle(request, message.Params)
+
+				case "send_message":
+					return h.HandleSendMessage(request, message.Params)
+				case "receive_message":
+					return h.HandleReceiveMessage(request, message.Params)
+				case "status":
+					return h.HandleStatus(request, message.Params)
+				case "upload_new_otps":
+					return h.HandleUploadNewOTPs(request, message.Params)
+
+			default:
+				return events.APIGatewayProxyResponse{}, nil
+		*/
 	}
 }
 
+// UTILS
 func buildOutboundMessage(params interface{}, method string) (*api.OutboundMessage, error) {
 	// Marshal
 	marshalledParams, err := json.Marshal(params)
@@ -79,6 +85,28 @@ func buildOutboundMessage(params interface{}, method string) (*api.OutboundMessa
 	return api_call, nil
 }
 
+// HANDLER
+func (h *APIHandler) handleEcho(w http.ResponseWriter, params json.RawMessage) {
+	// Build OutboundMessage from params
+	response, err := buildOutboundMessage(params, "echo")
+	if err != nil {
+		log.Println("Error building response:", err)
+		http.Error(w, "Error building response", http.StatusInternalServerError)
+		return
+	}
+	// Marshal response
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		log.Println("Error marshalling response:", err)
+		http.Error(w, "Error marshalling response", http.StatusInternalServerError)
+		return
+	}
+	// Return response
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseBytes)
+}
+
+/*
 func (h *APIHandler) HandleGetBundle(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
 	// Parse request body (JSON)
 	request := &api.RequestUserBundle{}
@@ -154,3 +182,4 @@ func (h *APIHandler) HandleUploadBundle(req events.APIGatewayWebsocketProxyReque
 		Body:       string(responseBytes),
 	}, nil
 }
+*/

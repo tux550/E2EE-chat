@@ -24,24 +24,36 @@ type DocDBManager struct {
 	messageCol *mongo.Collection
 }
 
-func NewDocDBManager() *DocDBManager {
-	// MongoDB URI from environment variables
+func init() {
+	// Validate environment variables
 	mongoURI := os.Getenv("MONGO_URI")
 	if mongoURI == "" {
 		log.Fatal("MONGO_URI environment variable is not set")
+		panic("MONGO_URI environment variable is not set")
 	}
 	mongoDB := os.Getenv("MONGO_DB")
 	if mongoDB == "" {
 		log.Fatal("MONGO_DB environment variable is not set")
+		panic("MONGO_DB environment variable is not set")
 	}
 	mongoClientCol := os.Getenv("MONGO_CLIENT_COL")
 	if mongoClientCol == "" {
 		log.Fatal("MONGO_CLIENT_COL environment variable is not set")
+		panic("MONGO_CLIENT_COL environment variable is not set")
 	}
 	mongoMessageCol := os.Getenv("MONGO_MESSAGE_COL")
 	if mongoMessageCol == "" {
 		log.Fatal("MONGO_MESSAGE_COL environment variable is not set")
+		panic("MONGO_MESSAGE_COL environment variable is not set")
 	}
+}
+
+func NewDocDBManager() *DocDBManager {
+	// MongoDB URI from environment variables
+	mongoURI := os.Getenv("MONGO_URI")
+	mongoDB := os.Getenv("MONGO_DB")
+	mongoClientCol := os.Getenv("MONGO_CLIENT_COL")
+	mongoMessageCol := os.Getenv("MONGO_MESSAGE_COL")
 
 	// Connect to DocumentDB (MongoDB-compatible)
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(mongoURI))

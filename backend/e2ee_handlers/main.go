@@ -1,16 +1,28 @@
 package main
 
 import (
-	"github.com/aws/aws-lambda-go/lambda"
+	"log"
+	"net/http"
 )
 
-// Websocket - EKS
-// Deployed behind AWS API Gateway with Websocket support
+// Websocket - ECS
+var (
+	appVersion = "1.0.0"
+)
+
+func init() {
+	// Log version
+	log.Println("Version:", appVersion)
+}
+
 func main() {
 	// Initialize API server
 	server := NewServer()
 	// Initialize API handler
 	router := NewAPIHandler(server)
-	// Routing
-	lambda.Start(router.HandleRequests)
+	// Start API server
+	err := http.ListenAndServe(":8080", http.HandlerFunc(router.HandleRequests))
+	if err != nil {
+		log.Fatal(err)
+	}
 }

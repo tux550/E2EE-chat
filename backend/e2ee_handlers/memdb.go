@@ -1,16 +1,15 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
 // ENV VARIABLES:
-// - AWS_REGION
 // - DDB_TABLE_CONN
 type MemDBManager struct {
 	client *dynamodb.DynamoDB
@@ -18,13 +17,16 @@ type MemDBManager struct {
 
 func NewMemDBManager() *MemDBManager {
 	// Initialize DynamoDB client
-	sess := session.Must(session.NewSession(
-		&aws.Config{
-			Region: aws.String(os.Getenv("AWS_REGION")),
-		},
-	))
 	return &MemDBManager{
-		client: dynamodb.New(sess),
+		client: dynamodb.New(GetAWSSession()),
+	}
+}
+
+func init() {
+	// Validate environment variables
+	if os.Getenv("DDB_TABLE_CONN") == "" {
+		log.Fatal("DDB_TABLE_CONN environment variable is not set")
+		panic("DDB_TABLE_CONN environment variable is not set")
 	}
 }
 

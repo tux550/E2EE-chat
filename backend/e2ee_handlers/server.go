@@ -7,16 +7,26 @@ import (
 type Server struct {
 	docdb *DocDBManager
 	memdb *MemDBManager
+	apim  *AWSAPIManager
 }
 
 func NewServer() *Server {
+	// TEMPORARY FOR LOCAL TESTING
+	return &Server{
+		docdb: nil,
+		memdb: nil,
+		apim:  nil,
+	}
+
 	// Create db managers
 	docdb := NewDocDBManager()
 	memdb := NewMemDBManager()
+	apim := NewAWSAPIManager()
 
 	return &Server{
 		docdb: docdb,
 		memdb: memdb,
+		apim:  apim,
 	}
 }
 
