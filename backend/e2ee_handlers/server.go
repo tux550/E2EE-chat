@@ -11,17 +11,12 @@ type Server struct {
 }
 
 func NewServer() *Server {
-	// TEMPORARY FOR LOCAL TESTING
-	return &Server{
-		docdb: nil,
-		memdb: nil,
-		apim:  nil,
-	}
 
+	// TEMPORARY NIL FOR LOCAL TESTING
 	// Create db managers
 	docdb := NewDocDBManager()
-	memdb := NewMemDBManager()
-	apim := NewAWSAPIManager()
+	var memdb *MemDBManager = nil //NewMemDBManager()
+	var apim *AWSAPIManager = nil //NewAWSAPIManager()
 
 	return &Server{
 		docdb: docdb,
