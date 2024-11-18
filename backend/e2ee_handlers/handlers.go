@@ -182,4 +182,231 @@ func (h *APIHandler) HandleUploadBundle(req events.APIGatewayWebsocketProxyReque
 		Body:       string(responseBytes),
 	}, nil
 }
+
+func (h *APIHandler) HandleSendMessage(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
+	// Parse request body (JSON)
+	request := &api.RequestSendMsg{}
+	err := json.Unmarshal(params, request)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+	// Get connection entry
+	// FIXME: Dunno if this is the right way to get the connection entry
+	entry, err := h.getConnectionEntry(req)
+	if err != nil {
+		log.Println("Error getting connection entry:", err)
+		return events.APIGatewayProxyResponse{}, err
+	}
+	// Send the message
+	ok := h.server.SendMessage(request.RecipientID, entry.Username, request.MessageData)
+
+	// Build response
+	response, err := buildOutboundMessage(&api.ResponseSendMsg{
+		Success: ok,
+	}, "send_message")
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Error building response",
+		}, err
+	}
+	// Marshal response
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Error marshalling response",
+		}, err
+	}
+
+	notification, err := buildOutboundMessage(&api.NotifyNewMessage{
+		SenderID: entry.Username,
+	}, "notify_new_message")
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Error building notification",
+		}, err
+	}
+
+	notificationBytes, err := json.Marshal(notification)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Error marshalling notification",
+		}, err
+	}
+
+	h.server.SendNotificationToUser(request.RecipientID, notificationBytes)
+
+	// Return response
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       string(responseBytes),
+	}, nil
+}
+
+func (h *APIHandler) HandleReceiveMessage(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
+	// Parse request body (JSON)
+	request := &api.RequestReceiveMsg{}
+	err := json.Unmarshal(params, request)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+	// Get connection entry
+	entry, err := h.getConnectionEntry(req)
+	if err != nil {
+		log.Println("Error getting connection entry:", err)
+		return events.APIGatewayProxyResponse{}, err
+	}
+	// Get the message
+	messageData, ok, err := h.server.GetMessage(entry.Username)
+	if err != nil {
+		log.Println("Error getting message for user:", entry.Username)
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	if !ok {
+		fmt.Println("User", entry.Username, "requested message but none available")
+		// Send response
+		response, err := buildOutboundMessage(&api.ResponseReceiveMsg{
+			Success: false,
+		}, "receive_message")
+		if err != nil {
+			fmt.Println("Error marshalling response to receive_message")
+			return events.APIGatewayProxyResponse{}, err
+		}
+		// Marshal response
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			fmt.Println("Error marshalling fail response to receive_message")
+			return events.APIGatewayProxyResponse{}, err
+		}
+		// Return response
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Body:       string(responseBytes),
+		}, nil
+	}
+
+	fmt.Println("User", entry.Username, "received message from user")
+
+	// Send response
+	response, err := buildOutboundMessage(&api.ResponseReceiveMsg{
+		Success:     true,
+		SenderID:    messageData.SenderID,
+		MessageData: messageData.Message,
+	}, "receive_message")
+	if err != nil {
+		fmt.Println("Error marshalling response to receive_message")
+		return events.APIGatewayProxyResponse{}, err
+	}
+	// Marshal response
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println("Error marshalling response to receive_message")
+		return events.APIGatewayProxyResponse{}, err
+	}
+	// Return response
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+
+		Body: string(responseBytes),
+	}, nil
+}
+
+func (h *APIHandler) HandleStatus(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
+	// Parse request body (JSON)
+	request := &api.RequestUserStatus{}
+	err := json.Unmarshal(params, request)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	// Get connection entry
+	// FIXME: call the appropriate function
+	entry, err := h.getConnectionEntry(req)
+	if err != nil {
+		log.Println("Error getting connection entry:", err)
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	registered, err := h.server.IsClientRegistered(entry.Username)
+
+	if err != nil {
+		log.Println("Error checking if user", entry.Username, "is registered")
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	fmt.Println("User", entry.Username, "checked if self is registered")
+
+	// Build response
+	response, err := buildOutboundMessage(&api.ResponseUserStatus{
+		Success: registered,
+	}, "status")
+	if err != nil {
+		fmt.Println("Error marshalling response to status", err)
+		return events.APIGatewayProxyResponse{}, err
+	}
+	// Marshal response
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println("Error marshalling success response to status", err)
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	if !registered {
+		fmt.Println("User", entry.Username, "is not registered")
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusUnauthorized,
+			Body:       string(responseBytes),
+		}, nil
+	}
+
+	count, err := h.server.GetRemainingOTPCount(entry.Username)
+	if err != nil {
+		fmt.Println("Error getting remaining OTP count for user", entry.Username)
+
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	if count < 3 {
+		// Notify user
+		fmt.Println("Notifying user", entry.Username, "that OTP is running low")
+		// Send notification
+		notificationBytes := getLowOTPNotification()
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Body:       string(notificationBytes),
+		}, nil
+	}
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusInternalServerError,
+		Body:       "Count is not less than 3",
+	}, nil
+}
+
+func (h *APIHandler) HandleUploadNewOTPs(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
+	// Parse request body (JSON)
+	request := &api.RequestUploadOTPs{}
+	err := json.Unmarshal(params, request)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	// Get connection entry
+	entry, err := h.getConnectionEntry(req)
+	if err != nil {
+		log.Println("Error getting connection entry:", err)
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	h.server.ExpandOTPSet(entry.Username, request.OTPs)
+	fmt.Println("User", entry.Username, "uploaded #", len(request.OTPs), "new OTPs")
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       "Success",
+	}, nil
+}
 */
