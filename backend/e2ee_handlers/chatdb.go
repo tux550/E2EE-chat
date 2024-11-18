@@ -144,7 +144,7 @@ func (m *DocDBManager) ClienOTPPop(clientID string, count int) (*ClientData, err
 		context.TODO(),
 		map[string]string{"clientID": clientID}, // Filter
 		bson.M{
-			"$pop": bson.M{"bundle.otpset": -1}, // Pop OTPs
+			"$pop": bson.M{"bundle.otpset": -count}, // Pop OTPs
 		},
 		// Set options
 		//options.FindOneAndUpdate().SetBypassDocumentValidation(true),
