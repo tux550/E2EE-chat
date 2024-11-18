@@ -128,7 +128,7 @@ func (m *DocDBManager) ClienOTPAppend(clientID string, otps []X3DHCore.X3DHPubli
 		context.TODO(),
 		map[string]string{"clientID": clientID}, // Filter
 		bson.M{
-			"$push": bson.M{"bundle.otpSet": bson.M{"$each": otps}}, // Append new OTPs
+			"$push": bson.M{"bundle.otpset": bson.M{"$each": otps}}, // Append new OTPs
 		},
 	)
 	if prev_doc.Err() != nil {
@@ -144,8 +144,10 @@ func (m *DocDBManager) ClienOTPPop(clientID string, count int) (*ClientData, err
 		context.TODO(),
 		map[string]string{"clientID": clientID}, // Filter
 		bson.M{
-			"$pop": bson.M{"bundle.otpSet": -count}, // Pop OTPs
+			"$pop": bson.M{"bundle.otpset": -1}, // Pop OTPs
 		},
+		// Set options
+		//options.FindOneAndUpdate().SetBypassDocumentValidation(true),
 	)
 	if prev_doc.Err() != nil {
 		log.Printf("Error popping OTPs from client %s: %v", clientID, prev_doc.Err())
