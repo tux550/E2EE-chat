@@ -134,10 +134,14 @@ func (s *Server) getConnectionEntry(connectionID string) (ConnectionEntry, error
 
 	if IsMockSet() {
 		return s.getMockConnectionEntry(connectionID)
+	} else {
+		// Request from DynamoDB
+		connection, err := s.memdb.GetConnection(connectionID)
+		if err != nil {
+			return ConnectionEntry{}, err
+		}
+		return *connection, nil
 	}
-	// TODO: Implement
-	// Request from AWS API Gateway
-	return ConnectionEntry{}, nil
 }
 
 func (s *Server) getMockConnectionEntriesByUser(userID string) ([]ConnectionEntry, error) {
@@ -162,10 +166,19 @@ func (s *Server) getMockConnectionEntriesByUser(userID string) ([]ConnectionEntr
 func (s *Server) getConnectionEntriesByUser(userID string) ([]ConnectionEntry, error) {
 	if IsMockSet() {
 		return s.getMockConnectionEntriesByUser(userID)
+	} else {
+		// Request from DynamoDB
+		connections, err := s.memdb.GetUserConnections(userID)
+		if err != nil {
+			return []ConnectionEntry{}, err
+		}
+		// From list of pointers to list of values
+		entries := make([]ConnectionEntry, len(connections))
+		for i, conn := range connections {
+			entries[i] = *conn
+		}
+		return entries, nil
 	}
-	// Request from AWS API Gateway
-	// TODO: Implement
-	return []ConnectionEntry{}, nil
 }
 
 func (s *Server) mockWebSocketSendConnection(connectionID string, msg []byte) {
@@ -184,20 +197,18 @@ func (s *Server) WebSocketSendConnection(connectionID string, msg []byte) {
 		s.mockWebSocketSendConnection(connectionID, msg)
 	} else {
 		// Send to connection
-		// TODO: Implement
 		log.Printf("WS send to connection %s: %s", connectionID, string(msg))
+		s.apim.PostToConnection(connectionID, msg)
 	}
 }
 
 func (s *Server) WebSocketSendUser(user string, msg []byte) {
 	// Get connections by user
 	var connections []ConnectionEntry
-	if IsMockSet() {
-		connections, _ = s.getMockConnectionEntriesByUser(user)
-	} else {
-		// Get connections from AWS API Gateway
-		// TODO: Implement
-		log.Printf("WS send to user %s: %s", user, string(msg))
+	connections, err := s.getConnectionEntriesByUser(user)
+	if err != nil {
+		log.Printf("Failed to get connections for user %s: %v", user, err)
+		return
 	}
 	// For each connection, send message
 	for _, conn := range connections {
