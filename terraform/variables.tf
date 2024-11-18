@@ -1,10 +1,21 @@
 variable "region" {
-  default = "us-east-1"
+  default = "us-east-2"
 }
+
+variable "availability_zone" {
+  description = "Availability zone"
+  default     = ["us-east-2a", 
+  "us-east-2b"]
+  type = list(string)
+  
+}
+
 
 variable "app_name" {
   default = "my-docker-app"
 }
+
+
 
 variable "ecr_image_url" {
   description = "URL of the Docker image in ECR"
@@ -14,7 +25,7 @@ variable "ecr_image_url" {
 variable "db_user" {
   description = "Database user"
   type        = string
-  default     = "admin"
+  default     = "myuser"
 }
 
 variable "db_password" {
@@ -51,4 +62,5 @@ variable "ws_api_gateway_endpoint" {
 variable "ddb_table_connections" {
   description = "DynamoDB table for connections"
   type        = string
+  default = "e2ee_chat_connections"
 }
