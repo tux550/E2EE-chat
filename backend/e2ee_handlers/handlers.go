@@ -62,8 +62,9 @@ func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Parse post body
+	log.Println("Request Body:", string(request.Body))
 	message := &api.InboundMessage{}
-	err = json.Unmarshal([]byte(request.Body), message)
+	err = json.Unmarshal(request.Body, message)
 	if err != nil {
 		log.Println("Error parsing message:", err)
 		http.Error(w, "Error parsing message", http.StatusBadRequest)
@@ -71,7 +72,7 @@ func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	}
 	// Handle message
 	switch message.Method {
-	default:
+	case "echo":
 		// ECHO
 		h.handleEcho(w, message.Params) // Handlers must also recieve connectionID to be able to reply
 		return
@@ -81,19 +82,23 @@ func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	case "upload_bundle":
 		h.HandleUploadBundle(w, message.Params, request.ConnectionID)
 		return
-		/*
-				case "send_message":
-					return h.HandleSendMessage(request, message.Params)
-				case "receive_message":
-					return h.HandleReceiveMessage(request, message.Params)
-				case "status":
-					return h.HandleStatus(request, message.Params)
-				case "upload_new_otps":
-					return h.HandleUploadNewOTPs(request, message.Params)
+	case "send_message":
+		h.HandleSendMessage(w, message.Params, request.ConnectionID)
+		return
+	case "receive_message":
+		h.HandleReceiveMessage(w, message.Params, request.ConnectionID)
+		return
+	case "status":
+		h.HandleStatus(w, message.Params, request.ConnectionID)
+		return
+	case "upload_new_otps":
+		h.HandleUploadNewOTPs(w, message.Params, request.ConnectionID)
+		return
+	default:
+		// Invalid method
+		h.SetErrorResponse(w, fmt.Sprintf("Invalid method: %s", message.Method))
+		return
 
-			default:
-				return events.APIGatewayProxyResponse{}, nil
-		*/
 	}
 }
 

@@ -1,86 +1,107 @@
 import asyncio
-import websockets
 import httpx
 import json
-from websockets.exceptions import ConnectionClosed
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException
 
-# Define ports
-WEBSOCKET_PORT = 8081
-HTTP_FORWARD_PORT = 8080
-HTTP_LISTEN_PORT = 8082
+#Backend server ports
+HTTP_SERVER_PORT = 8080
+#Gateway server ports
+API_SERVER_PORT = 8082
 
-# Store active WebSocket connections
-connections = {}
+HTTP_SERVER_URL = f"http://local-e2ee-app:{HTTP_SERVER_PORT}"
+
+# Data structure to keep track of WebSocket connections and associated usernames
+connections_username = {}
+connections_objs = {}
+
+# FastAPI application to serve HTTP API
+app = FastAPI()
 
 async def forward_to_http(message: dict):
     """Forward a WebSocket message to the HTTP server."""
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.post(f"http://localhost:{HTTP_FORWARD_PORT}", json=message)
-            print(f"Forwarded to HTTP: {message}, HTTP Response: {response.status_code}")
+            print(f"Forwarding to HTTP: {message}")
+            response = await client.post(HTTP_SERVER_URL, json=message)
+            print(f"HTTP Response: {response.status_code}")
         except Exception as e:
             print(f"Error forwarding to HTTP: {e}")
 
-async def websocket_handler(websocket, path):
+@app.websocket("/ws")
+async def websocket_handler(websocket: WebSocket):
     """Handle incoming WebSocket connections."""
-    connection_id = id(websocket)  # Use Python object ID as a unique connection ID
-    connections[connection_id] = websocket
-    print(f"Connection opened with ID: {connection_id}")
+    await websocket.accept()
+    username = None
+    connection_id = str(id(websocket))  # Connection ID is a string
+
+    # Extract the username header if available
+    for header, value in websocket.headers.items():
+        if header.lower() == "username":
+            username = value
+            break
+
+    if username:
+        # Save the connection username and connection
+        connections_username[connection_id] = username  
+        connections_objs[connection_id] = websocket
+
+    print(f"Connection opened with ID: {connection_id}, Username: {username}")
 
     try:
-        async for message in websocket:
-            print(f"Received from WebSocket (ID {connection_id}): {message}")
+        while True:
+            message = await websocket.receive_json()
+            print(f"Received from WebSocket: {message}")
             # Create the template message
             payload = {
-                "connectionId": str(connection_id),
+                "connectionId": connection_id,
                 "body": message,
             }
             # Forward to HTTP
             await forward_to_http(payload)
-    except ConnectionClosed:
+    except WebSocketDisconnect:
         print(f"Connection closed for ID: {connection_id}")
-    finally:
-        connections.pop(connection_id, None)
+        if connection_id in connections_username:
+            del connections_username[connection_id]  # Remove connection info when closed
 
-async def handle_http_request(reader, writer):
-    """Handle incoming HTTP POST requests."""
-    data = await reader.read(1024)
-    try:
-        # Parse the received data
-        request = json.loads(data.decode())
-        connection_id = int(request["connectionId"])
-        body = request["body"]
-        print(f"Received from HTTP: {request}")
+@app.post("/send/{connectionId}")
+async def send_message(connectionId: str, body: dict):
+    """Receive a message body and forward it to the corresponding WebSocket."""
+    if connectionId in connections_username:
+        # Get the WebSocket connection object
+        conn = connections_objs.get(connectionId)
+        # Send message to the WebSocket
+        try:
+            # Send the message as JSON to the WebSocket
+            await conn.send_json(body)
+            return JSONResponse(content={"status": "success"})
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+    else:
+        raise HTTPException(status_code=404, detail="Connection ID not found")
 
-        # Find the WebSocket connection
-        websocket = connections.get(connection_id)
-        if websocket:
-            # Send the message to the WebSocket client
-            await websocket.send(body)
-            response = {"status": "success", "message": "Sent to WebSocket"}
-        else:
-            response = {"status": "error", "message": "Connection ID not found"}
-    except Exception as e:
-        response = {"status": "error", "message": str(e)}
+@app.get("/connections/{connectionId}")
+async def get_connection(connectionId: str):
+    """Return the username for a given connection ID."""
+    if connectionId in connections_username:
+        return JSONResponse(content={"connectionId": connectionId, "username": connections_username[connectionId]})
+    else:
+        raise HTTPException(status_code=404, detail="Connection ID not found")
 
-    # Respond to the HTTP client
-    writer.write(f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{json.dumps(response)}".encode())
-    await writer.drain()
-    writer.close()
-
-async def http_server():
-    """Start the HTTP listener."""
-    server = await asyncio.start_server(handle_http_request, "localhost", HTTP_LISTEN_PORT)
-    print(f"HTTP server is running on http://localhost:{HTTP_LISTEN_PORT}")
-    async with server:
-        await server.serve_forever()
-
-async def main():
-    """Start the WebSocket and HTTP servers."""
-    websocket_server = websockets.serve(websocket_handler, "localhost", WEBSOCKET_PORT)
-    print(f"WebSocket server is running on ws://localhost:{WEBSOCKET_PORT}")
-
-    await asyncio.gather(websocket_server, http_server())
+@app.get("/username/{username}")
+async def get_connections_by_username(username: str):
+    """Return all connections for a given username."""
+    user_connections = [
+        {"connectionId": cid, "username": username}
+        for cid, uname in connections_username.items()
+        if uname == username
+    ]
+    if user_connections:
+        return JSONResponse(content=user_connections)
+    else:
+        raise HTTPException(status_code=404, detail="No connections found for this username")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=API_SERVER_PORT)
