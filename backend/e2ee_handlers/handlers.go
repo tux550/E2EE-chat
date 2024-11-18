@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -23,6 +24,31 @@ type HTTPNormalizedRequest struct {
 	ConnectionID string `json:"connectionId"`
 	// Raw json
 	Body json.RawMessage `json:"body"`
+}
+
+// RESPONSES
+func (h *APIHandler) SetSuccessResponse(w http.ResponseWriter) {
+	// Log
+	log.Println("Success")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Success"))
+}
+
+func (h *APIHandler) SetSuccessResponseWithMessage(w http.ResponseWriter, message []byte) {
+	// Log
+	log.Println("Success:", message)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(message)
+}
+
+func (h *APIHandler) SetErrorResponse(w http.ResponseWriter, message string) {
+	// Log
+	log.Println("Error:", message)
+
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Write([]byte(message))
 }
 
 // API
@@ -49,12 +75,13 @@ func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 		// ECHO
 		h.handleEcho(w, message.Params) // Handlers must also recieve connectionID to be able to reply
 		return
+	case "get_bundle":
+		h.HandleGetBundle(w, message.Params, request.ConnectionID)
+		return
+	case "upload_bundle":
+		h.HandleUploadBundle(w, message.Params, request.ConnectionID)
+		return
 		/*
-				case "get_bundle":
-					return h.HandleGetBundle(request, message.Params)
-				case "upload_bundle":
-					return h.HandleUploadBundle(request, message.Params)
-
 				case "send_message":
 					return h.HandleSendMessage(request, message.Params)
 				case "receive_message":
@@ -85,104 +112,114 @@ func buildOutboundMessage(params interface{}, method string) (*api.OutboundMessa
 	return api_call, nil
 }
 
-// HANDLER
-func (h *APIHandler) handleEcho(w http.ResponseWriter, params json.RawMessage) {
+func buildOutboundMessageBytes(params interface{}, method string) ([]byte, error) {
 	// Build OutboundMessage from params
-	response, err := buildOutboundMessage(params, "echo")
+	response, err := buildOutboundMessage(params, method)
 	if err != nil {
-		log.Println("Error building response:", err)
-		http.Error(w, "Error building response", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	// Marshal response
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
-		log.Println("Error marshalling response:", err)
-		http.Error(w, "Error marshalling response", http.StatusInternalServerError)
+		return nil, err
+	}
+	return responseBytes, nil
+}
+
+// HANDLER
+func (h *APIHandler) handleEcho(w http.ResponseWriter, params json.RawMessage) {
+	// Build OutboundMessage from params
+	responseBytes, err := buildOutboundMessageBytes(params, "echo")
+	if err != nil {
+		h.SetErrorResponse(w, fmt.Sprintf("Error building response: %v", err))
 		return
 	}
 	// Return response
-	w.WriteHeader(http.StatusOK)
-	w.Write(responseBytes)
+	h.SetSuccessResponseWithMessage(w, responseBytes)
 }
 
-/*
-func (h *APIHandler) HandleGetBundle(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
+func (h *APIHandler) HandleGetBundle(w http.ResponseWriter, params json.RawMessage, connectionID string) {
 	// Parse request body (JSON)
 	request := &api.RequestUserBundle{}
 	err := json.Unmarshal(params, request)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error parsing request: %v", err))
+		return
 	}
 	// Get the bundle
 	bundle, ok, err := h.server.GetClientBundle(request.UserID)
 	if err != nil {
-		log.Println("Error getting client bundle:", err)
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error getting client bundle: %v", err))
+		return
 	}
-
-	// TODO:
-	// NOTIFY RECIPIENT IF OTP IS RUNNING LOW
-
-	// Build response
-	response, err := buildOutboundMessage(&api.ResponseUserBundle{
+	// Build bundle response
+	response, err := buildOutboundMessageBytes(&api.ResponseUserBundle{
 		Success: ok,
 		Bundle:  bundle,
 	}, "get_bundle")
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error building response: %v", err))
+		return
 	}
-	// Marshal response
-	responseBytes, err := json.Marshal(response)
+	// Send response
+	h.server.WebSocketSendConnection(connectionID, response)
+	// Notify user if OTP is running low
+	count, err := h.server.GetRemainingOTPCount(request.UserID)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error getting remaining OTP count for user: %v", err))
+		return
 	}
-	// Return response
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Body:       string(responseBytes),
-	}, nil
+	if count < 3 {
+		// Notify user
+		// Send notification
+		notifyLow, err := buildOutboundMessageBytes(&api.NotifyLowOTP{}, "notify_low_otp")
+		if err != nil {
+			h.SetErrorResponse(w, fmt.Sprintf("Error building low OTP notification: %v", err))
+			return
+		}
+		// Send notification
+		h.server.WebSocketSendUser(request.UserID, notifyLow)
+	}
 
+	// API response
+	h.SetSuccessResponse(w)
 }
 
-func (h *APIHandler) HandleUploadBundle(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
+func (h *APIHandler) HandleUploadBundle(w http.ResponseWriter, params json.RawMessage, connectionID string) {
 	// Parse request body (JSON)
 	request := &api.RequestUploadBundle{}
 	err := json.Unmarshal(params, request)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error parsing request: %v", err))
+		return
 	}
 	// Get connection entry
-	entry, err := h.getConnectionEntry(req)
+	entry, err := h.server.getConnectionEntry(connectionID)
 	if err != nil {
-		log.Println("Error getting connection entry:", err)
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error getting connection entry: %v", err))
+		return
 	}
 	// Upload the bundle
 	err = h.server.RegisterClient(entry.Username, request.Bundle)
 	if err != nil {
-		log.Println("Error uploading client bundle:", err)
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error uploading client bundle: %v", err))
 	}
 	// Build response
-	response, err := buildOutboundMessage(&api.ResponseUploadBundle{
+	responseBytes, err := buildOutboundMessageBytes(&api.ResponseUploadBundle{
 		Success: true,
 	}, "upload_bundle")
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
+		h.SetErrorResponse(w, fmt.Sprintf("Error building response: %v", err))
+		return
 	}
-	// Marshal response
-	responseBytes, err := json.Marshal(response)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, err
-	}
-	// Return response
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Body:       string(responseBytes),
-	}, nil
+	// Send response
+	h.server.WebSocketSendConnection(connectionID, responseBytes)
+
+	// API response
+	h.SetSuccessResponse(w)
 }
 
+/*
 func (h *APIHandler) HandleSendMessage(req events.APIGatewayWebsocketProxyRequest, params json.RawMessage) (events.APIGatewayProxyResponse, error) {
 	// Parse request body (JSON)
 	request := &api.RequestSendMsg{}

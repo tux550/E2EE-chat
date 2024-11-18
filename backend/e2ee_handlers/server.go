@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	X3DHCore "tux.tech/x3dh/core"
 )
 
@@ -82,4 +84,23 @@ func (s *Server) GetMessage(clientID string) (MessageData, bool, error) {
 	}
 	msg := messageQueue[0]
 	return msg, true, nil
+}
+
+func (s *Server) getConnectionEntry(connectionID string) (ConnectionEntry, error) {
+	// Mock request connection from DynamoDB
+	return ConnectionEntry{
+		ConnectionID: connectionID,
+		Username:     "user1",
+	}, nil
+}
+
+func (s *Server) WebSocketSendConnection(connectionID string, msg []byte) {
+	// Mock
+	log.Printf("WS send to connection %s: %s", connectionID, string(msg))
+}
+
+func (s *Server) WebSocketSendUser(user string, msg []byte) {
+	// Mock
+	// Should find the connectionID of the user and send the message
+	log.Printf("WS send to user %s: %s", user, string(msg))
 }
