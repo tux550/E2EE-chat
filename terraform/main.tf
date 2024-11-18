@@ -98,18 +98,32 @@ resource "aws_ecs_task_definition" "app" {
       hostPort      = 80
     }]
     environment = [
+      // APP env
       {
-        name  = "DB_URI"
-        value = aws_docdb_cluster.main.endpoint
+        name = "MONGO_DB"
+        value = var.db_database
       },
       {
-        name  = "DB_USER"
-        value = var.db_user
+        name = "MONGO_URI"
+        value = "mongodb://${var.db_user}:${var.db_password}@${aws_docdb_cluster.main.endpoint}"
       },
       {
-        name  = "DB_PASSWORD"
-        value = var.db_password
+        name = "MONGO_CLIENT_COL"
+        value = var.db_client_collection
+      },
+      {
+        name = "MONGO_MESSAGE_COL"
+        value = var.db_message_collection
+      },
+      {
+        name = "DDB_TABLE_CONN"
+        value = var.ddb_table_connections
+      },
+      {
+        name = "API_ENDPOINT",
+        value = var.ws_api_gateway_endpoint
       }
+
     ]
   }])
 }
