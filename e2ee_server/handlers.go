@@ -1,5 +1,0 @@
-package main
-
-/*
-Implement handlers
-*/
