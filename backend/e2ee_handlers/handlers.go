@@ -55,6 +55,7 @@ func (h *APIHandler) SetErrorResponse(w http.ResponseWriter, message string) {
 func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	// If method is GET return 200 OK
 	if r.Method == "GET" {
+		log.Println("Health check")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 		return

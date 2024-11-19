@@ -62,7 +62,7 @@ func (s *Server) RegisterClient(clientID string, bundle X3DHCore.X3DHClientBundl
 	data := NewClientData(bundle)
 	_, err := s.clientCol.UpdateOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 		bson.M{"$set": data},
 		options.Update().SetUpsert(true),
 	)
@@ -77,7 +77,7 @@ func (s *Server) RegisterClient(clientID string, bundle X3DHCore.X3DHClientBundl
 func (s *Server) IsClientRegistered(clientID string) (bool, error) {
 	count, err := s.clientCol.CountDocuments(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 	)
 	return count > 0, err
 }
@@ -94,7 +94,7 @@ func (s *Server) GetRemainingOTPCount(clientID string) (int, error) {
 	var clientData ClientData
 	err := s.clientCol.FindOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 	).Decode(&clientData)
 	if err != nil {
 		return 0, err
@@ -114,7 +114,7 @@ func (s *Server) ExpandOTPSet(clientID string, otps []X3DHCore.X3DHPublicOTP) er
 	var clientData ClientData
 	err := s.clientCol.FindOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 	).Decode(&clientData)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func (s *Server) ExpandOTPSet(clientID string, otps []X3DHCore.X3DHPublicOTP) er
 	clientData.Bundle.OtpSet = append(clientData.Bundle.OtpSet, otps...)
 	_, err = s.clientCol.UpdateOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 		bson.M{"$set": bson.M{"bundle.otpSet": clientData.Bundle.OtpSet}},
 	)
 	return err
@@ -157,7 +157,7 @@ func (s *Server) GetClientBundle(clientID string) (X3DHCore.X3DHKeyBundle, bool,
 	var clientData ClientData
 	err := s.clientCol.FindOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 	).Decode(&clientData)
 	if err != nil {
 		return X3DHCore.X3DHKeyBundle{}, false, err
@@ -172,7 +172,7 @@ func (s *Server) GetClientBundle(clientID string) (X3DHCore.X3DHKeyBundle, bool,
 
 	_, err = s.clientCol.UpdateOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 		bson.M{"$set": bson.M{"bundle.otpSet": clientData.Bundle.OtpSet}},
 	)
 	if err != nil {
@@ -201,7 +201,7 @@ func (s *Server) GetClientBundle(clientID string) (X3DHCore.X3DHKeyBundle, bool,
 func (s *Server) SendMessage(recipientID string, senderID string, msg X3DHCore.InitialMessage) bool {
 	_, err := s.clientCol.UpdateOne(
 		context.TODO(),
-		bson.M{"clientID": recipientID},
+		bson.M{"clientid": recipientID},
 		bson.M{"$push": bson.M{"queue": MessageData{
 			SenderID: senderID,
 			Message:  msg,
@@ -227,7 +227,7 @@ func (s *Server) GetMessage(clientID string) (MessageData, bool, error) {
 	var clientData ClientData
 	err := s.clientCol.FindOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 	).Decode(&clientData)
 	if err != nil {
 		return MessageData{}, false, err
@@ -242,7 +242,7 @@ func (s *Server) GetMessage(clientID string) (MessageData, bool, error) {
 
 	_, err = s.clientCol.UpdateOne(
 		context.TODO(),
-		bson.M{"clientID": clientID},
+		bson.M{"clientid": clientID},
 		bson.M{"$set": bson.M{"queue": clientData.Queue}},
 	)
 	if err != nil {
