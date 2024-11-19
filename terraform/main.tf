@@ -4,7 +4,7 @@ terraform {
 
     aws = {
 
-      source  = "hashicorp/aws"
+      source = "hashicorp/aws"
 
       version = "~> 5.0"
 
@@ -27,10 +27,10 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count = 2
+  count                   = 2
   vpc_id                  = aws_vpc.main.id
   cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
-  availability_zone =  element(var.availability_zone, count.index)
+  availability_zone       = element(var.availability_zone, count.index)
   map_public_ip_on_launch = true
 }
 
@@ -43,8 +43,8 @@ resource "aws_security_group" "ecs" {
   vpc_id = aws_vpc.main.id
 
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -61,9 +61,9 @@ resource "aws_security_group" "documentdb" {
   vpc_id = aws_vpc.main.id
 
   ingress {
-    from_port   = 27017
-    to_port     = 27017
-    protocol    = "tcp"
+    from_port       = 27017
+    to_port         = 27017
+    protocol        = "tcp"
     security_groups = [aws_security_group.ecs.id]
   }
 
@@ -74,6 +74,27 @@ resource "aws_security_group" "documentdb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+// Roles
+resource "aws_iam_role" "ecs_task_execution" { 
+  name = "${var.app_name}-ecs-task-execution-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect    = "Allow",
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      },
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
 
 // ECS
 resource "aws_ecs_cluster" "main" {
@@ -87,6 +108,7 @@ resource "aws_ecs_task_definition" "app" {
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
+  execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
   container_definitions = jsonencode([{
     name      = var.app_name
@@ -96,32 +118,32 @@ resource "aws_ecs_task_definition" "app" {
     essential = true
     portMappings = [{
       containerPort = 8080
-      hostPort      = 80
+      hostPort      = 8080
     }]
     environment = [
       // APP env
       {
-        name = "MONGO_DB"
+        name  = "MONGO_DB"
         value = var.db_database
       },
       {
-        name = "MONGO_URI"
+        name  = "MONGO_URI"
         value = "mongodb://${var.db_user}:${var.db_password}@${aws_docdb_cluster.main.endpoint}"
       },
       {
-        name = "MONGO_CLIENT_COL"
+        name  = "MONGO_CLIENT_COL"
         value = var.db_client_collection
       },
       {
-        name = "MONGO_MESSAGE_COL"
+        name  = "MONGO_MESSAGE_COL"
         value = var.db_message_collection
       },
       {
-        name = "DDB_TABLE_CONN"
+        name  = "DDB_TABLE_CONN"
         value = var.ddb_table_connections
       },
       {
-        name = "API_ENDPOINT",
+        name  = "API_ENDPOINT",
         value = var.ws_api_gateway_endpoint
       }
 
@@ -135,6 +157,7 @@ resource "aws_ecs_service" "app" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   launch_type     = "FARGATE"
+  desired_count = 1
 
   network_configuration {
     subnets         = aws_subnet.public[*].id
@@ -148,26 +171,23 @@ resource "aws_ecs_service" "app" {
 resource "aws_db_subnet_group" "main" {
   name       = "${var.app_name}-docdb-subnet-group"
   subnet_ids = aws_subnet.public[*].id
-  // coeverage
-
-
 }
 
 resource "aws_docdb_cluster" "main" {
-  cluster_identifier = "${var.app_name}-docdb"
-  engine = "docdb"
-  master_username = var.db_user
-  master_password = var.db_password
-  vpc_security_group_ids  = [aws_security_group.documentdb.id]
-  db_subnet_group_name = aws_db_subnet_group.main.name
-  skip_final_snapshot = true
+  cluster_identifier     = "${var.app_name}-docdb"
+  engine                 = "docdb"
+  master_username        = var.db_user
+  master_password        = var.db_password
+  vpc_security_group_ids = [aws_security_group.documentdb.id]
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  skip_final_snapshot    = true
 }
 
 resource "aws_docdb_cluster_instance" "main" {
-  count = 3
-  identifier = "${var.app_name}-docdb-instance-${count.index}"
+  count              = 3
+  identifier         = "${var.app_name}-docdb-instance-${count.index}"
   cluster_identifier = aws_docdb_cluster.main.id
-  instance_class = "db.t3.medium"
+  instance_class     = "db.t3.medium"
 }
 
 resource "aws_route_table_association" "public" {

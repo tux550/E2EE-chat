@@ -4,10 +4,10 @@ variable "region" {
 
 variable "availability_zone" {
   description = "Availability zone"
-  default     = ["us-east-2a", 
+  default = ["us-east-2a",
   "us-east-2b"]
   type = list(string)
-  
+
 }
 
 
@@ -49,7 +49,7 @@ variable "db_client_collection" {
 variable "db_message_collection" {
   description = "Database message collection"
   type        = string
-  default     = "message" 
+  default     = "message"
 }
 
 
@@ -62,5 +62,5 @@ variable "ws_api_gateway_endpoint" {
 variable "ddb_table_connections" {
   description = "DynamoDB table for connections"
   type        = string
-  default = "e2ee_chat_connections"
+  default     = "e2ee_chat_connections"
 }
