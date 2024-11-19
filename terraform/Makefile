@@ -12,3 +12,6 @@ destroy:
 	terraform destroy -var-file=$(VAR_FILE)
 fmt:
 	terraform fmt
+
+stop-service:
+	terraform destroy -target aws_ecs_service.app -var-file="secret.tfvars"

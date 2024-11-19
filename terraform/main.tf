@@ -93,7 +93,7 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([{
     name      = "${var.app_name}-container"
-    image     = var.ecr_demo_image_url
+    image     = var.ecr_image_url
     //var.ecr_image_url
     cpu       = 1024
     memory    = 2048
@@ -120,7 +120,7 @@ resource "aws_ecs_task_definition" "app" {
       },
       {
         name  = "MONGO_URI"
-        value = "mongodb://${var.db_user}:${var.db_password}@${aws_docdb_cluster.main.endpoint}?ssl=true&retryWrites=false"
+        value = "mongodb://${var.db_user}:${var.db_password}@${aws_docdb_cluster.main.endpoint}/?ssl=true&retryWrites=false"
       },
       {
         name  = "MONGO_CLIENT_COL"
