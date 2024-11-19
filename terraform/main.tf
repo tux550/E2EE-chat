@@ -95,6 +95,25 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_ecr" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_ddb" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_docdb" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDocDBFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_apigw" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess"
+}
 
 // ECS
 resource "aws_ecs_cluster" "main" {
@@ -151,17 +170,57 @@ resource "aws_ecs_task_definition" "app" {
   }])
 }
 
+// Load balancer
+resource "aws_lb" "main" {
+  name               = "${var.app_name}-lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.ecs.id]
+  subnets            = aws_subnet.public[*].id
+}
+resource "aws_lb_listener" "main" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.main.arn
+  }
+}
+resource "aws_lb_target_group" "main" {
+  name     = "${var.app_name}-tg"
+  port     = 8080
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  target_type = "ip"
+  health_check {
+    path                = "/"
+  }
+}
+
+
 
 resource "aws_ecs_service" "app" {
   name            = var.app_name
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   launch_type     = "FARGATE"
+  
   desired_count = 1
+
+  force_new_deployment = true
 
   network_configuration {
     subnets         = aws_subnet.public[*].id
     security_groups = [aws_security_group.ecs.id]
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.main.arn
+    container_name   = var.app_name
+    container_port   = 8080
   }
 }
 

@@ -30,4 +30,8 @@ stop-mock:
 	@docker ps -q -f name=mock-gateway && docker stop mock-gateway || echo "Mock container not running"
 	@docker ps -aq -f name=mock-gateway && docker rm mock-gateway || echo "Mock container not found"
 run-client:
-	cd ./client/e2ee_client && go run .
+	cd ./client/e2ee_client && go run .´
+
+push-backend:
+	docker tag go-e2ee-app tux550/go-e2ee-app
+	docker push tux550/go-e2ee-app
