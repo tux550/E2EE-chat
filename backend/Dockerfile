@@ -29,6 +29,12 @@ FROM alpine:latest
 # Install required dependencies for your app (if any)
 RUN apk --no-cache add ca-certificates
 
+# Download the Amazon RDS global certificate bundle
+RUN wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -O /usr/local/share/ca-certificates/global-bundle.crt
+
+# Update the CA certificates store
+RUN update-ca-certificates
+
 # Copy the compiled Go binary from the build stage
 COPY --from=build /app/e2ee_handlers/myapp /usr/local/bin/myapp
 

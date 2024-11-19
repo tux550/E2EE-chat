@@ -22,6 +22,8 @@ run-backend: create-network
 stop-backend:
 	@docker ps -q -f name=local-e2ee-app && docker stop local-e2ee-app || echo "Backend container not running"
 	@docker ps -aq -f name=local-e2ee-app && docker rm local-e2ee-app || echo "Backend container not found"
+shell-backend:
+	docker run -it --network e2ee-network --env-file ./backend/.env --name local-e2ee-app go-e2ee-app /bin/sh
 build-mock:
 	docker build -t go-e2ee-mock ./mock
 run-mock: create-network

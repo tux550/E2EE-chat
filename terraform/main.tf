@@ -175,7 +175,7 @@ resource "aws_lb_target_group" "main" {
 
 
 resource "aws_ecs_service" "app" {
-  name            = "${var.app_name}-service"
+  name            = "${var.app_name}-srv"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   launch_type     = "FARGATE"
