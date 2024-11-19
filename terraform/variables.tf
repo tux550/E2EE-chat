@@ -22,6 +22,13 @@ variable "ecr_image_url" {
   type        = string
 }
 
+variable "ecr_demo_image_url" {
+  description = "URL of the Docker image in ECR for demo"
+  type        = string
+  default = ""
+  
+}
+
 variable "db_user" {
   description = "Database user"
   type        = string
