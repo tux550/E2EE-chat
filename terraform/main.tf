@@ -65,6 +65,18 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_apigw" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess"
 }
 
+// Add log 
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_logs" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
+
+// Create log group
+resource "aws_cloudwatch_log_group" "main" {
+  name              = "/ecs/${var.app_name}-logs"
+  retention_in_days = 7
+}
+
 // ECS
 resource "aws_ecs_cluster" "main" {
   name = "${var.app_name}-cluster"
@@ -90,6 +102,16 @@ resource "aws_ecs_task_definition" "app" {
       containerPort = 8080
       hostPort      = 8080
     }]
+    // Log config
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${var.app_name}-logs"
+        "awslogs-region"        = var.region
+        "awslogs-stream-prefix" = "ecs"
+      }
+    }
+
     environment = [
       // APP env
       {
@@ -116,7 +138,6 @@ resource "aws_ecs_task_definition" "app" {
         name  = "API_ENDPOINT",
         value = var.ws_api_gateway_endpoint
       }
-
     ]
   }])
 }
@@ -154,7 +175,7 @@ resource "aws_lb_target_group" "main" {
 
 
 resource "aws_ecs_service" "app" {
-  name            = var.app_name
+  name            = "${var.app_name}-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   launch_type     = "FARGATE"

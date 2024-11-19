@@ -3,7 +3,7 @@ import logging
 import boto3
 
 app = Flask(__name__)
-app_version = '1.0.0'
+app_version = '1.0.1'
 
 api_client = boto3.client('apigatewaymanagementapi', endpoint_url="https://ur6gzg7x79.execute-api.us-east-2.amazonaws.com/production")
 
