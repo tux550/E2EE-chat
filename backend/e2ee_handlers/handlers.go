@@ -53,6 +53,13 @@ func (h *APIHandler) SetErrorResponse(w http.ResponseWriter, message string) {
 
 // API
 func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
+	// If method is GET return 200 OK
+	if r.Method == "GET" {
+		log.Println("Health check")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+		return
+	}
 	// Parse request
 	request := HTTPNormalizedRequest{}
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -74,7 +81,7 @@ func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	switch message.Method {
 	case "echo":
 		// ECHO
-		h.handleEcho(w, message.Params) // Handlers must also recieve connectionID to be able to reply
+		h.handleEcho(w, message.Params, request.ConnectionID)
 		return
 	case "get_bundle":
 		h.HandleGetBundle(w, message.Params, request.ConnectionID)
@@ -132,13 +139,15 @@ func buildOutboundMessageBytes(params interface{}, method string) ([]byte, error
 }
 
 // HANDLER
-func (h *APIHandler) handleEcho(w http.ResponseWriter, params json.RawMessage) {
+func (h *APIHandler) handleEcho(w http.ResponseWriter, params json.RawMessage, connectionID string) {
 	// Build OutboundMessage from params
 	responseBytes, err := buildOutboundMessageBytes(params, "echo")
 	if err != nil {
 		h.SetErrorResponse(w, fmt.Sprintf("Error building response: %v", err))
 		return
 	}
+	// Send to connection
+	h.server.WebSocketSendConnection(connectionID, responseBytes)
 	// Return response
 	h.SetSuccessResponseWithMessage(w, responseBytes)
 }
