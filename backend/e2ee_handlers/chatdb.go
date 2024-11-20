@@ -91,7 +91,7 @@ func NewDocDBManager() *DocDBManager {
 func (m *DocDBManager) ClientUpsert(clientID string, data ClientData) error {
 	_, err := m.clientCol.UpdateOne(
 		context.TODO(),
-		map[string]string{"clientID": clientID},
+		map[string]string{"clientid": clientID},
 		map[string]ClientData{"$set": data},
 		options.Update().SetUpsert(true),
 	)
@@ -101,7 +101,7 @@ func (m *DocDBManager) ClientUpsert(clientID string, data ClientData) error {
 func (m *DocDBManager) ClientExists(clientID string) (bool, error) {
 	count, err := m.clientCol.CountDocuments(
 		context.TODO(),
-		map[string]string{"clientID": clientID},
+		map[string]string{"clientid": clientID},
 	)
 	return count > 0, err
 }
@@ -109,7 +109,7 @@ func (m *DocDBManager) ClientExists(clientID string) (bool, error) {
 func (m *DocDBManager) ClientFindOne(clientID string, data ClientData) error {
 	return m.clientCol.FindOne(
 		context.TODO(),
-		map[string]string{"clientID": clientID},
+		map[string]string{"clientid": clientID},
 	).Decode(data)
 }
 
@@ -117,7 +117,7 @@ func (m *DocDBManager) ClientOTPCount(clientID string) (int, error) {
 	var data ClientData
 	err := m.clientCol.FindOne(
 		context.TODO(),
-		map[string]string{"clientID": clientID},
+		map[string]string{"clientid": clientID},
 	).Decode(&data)
 	if err != nil {
 		return 0, err
@@ -129,7 +129,7 @@ func (m *DocDBManager) ClienOTPAppend(clientID string, otps []X3DHCore.X3DHPubli
 	// Use findOneAndUpdate to append OTPs atomically
 	prev_doc := m.clientCol.FindOneAndUpdate(
 		context.TODO(),
-		map[string]string{"clientID": clientID}, // Filter
+		map[string]string{"clientid": clientID}, // Filter
 		bson.M{
 			"$push": bson.M{"bundle.otpset": bson.M{"$each": otps}}, // Append new OTPs
 		},
@@ -145,7 +145,7 @@ func (m *DocDBManager) ClienOTPPop(clientID string, count int) (*ClientData, err
 	// Use findOneAndUpdate to pop OTPs atomically
 	prev_doc := m.clientCol.FindOneAndUpdate(
 		context.TODO(),
-		map[string]string{"clientID": clientID}, // Filter
+		map[string]string{"clientid": clientID}, // Filter
 		bson.M{
 			"$pop": bson.M{"bundle.otpset": -count}, // Pop OTPs
 		},
@@ -173,7 +173,7 @@ func (m *DocDBManager) ClientMessageAppend(
 	// Use findOneAndUpdate to append Message atomically
 	prev_doc := m.clientCol.FindOneAndUpdate(
 		context.TODO(),
-		map[string]string{"clientID": recipientID}, // Filter
+		map[string]string{"clientid": recipientID}, // Filter
 		bson.M{
 			"$push": bson.M{"queue": message}, // Append new message
 		},
@@ -190,7 +190,7 @@ func (m *DocDBManager) ClientMessagePull(clientID string) ([]MessageData, error)
 	// Use findOneAndUpdate to pull all messages atomically
 	prev_doc := m.clientCol.FindOneAndUpdate(
 		context.TODO(),
-		map[string]string{"clientID": clientID}, // Filter
+		map[string]string{"clientid": clientID}, // Filter
 		bson.M{
 			"$set": bson.M{"queue": []MessageData{}}, // Clear the queue
 		},
@@ -214,7 +214,7 @@ func (m *DocDBManager) ClientMessagePop(clientID string, count int) ([]MessageDa
 	// Use findOneAndUpdate to pop messages atomically
 	prev_doc := m.clientCol.FindOneAndUpdate(
 		context.TODO(),
-		map[string]string{"clientID": clientID}, // Filter
+		map[string]string{"clientid": clientID}, // Filter
 		bson.M{
 			"$pop": bson.M{"queue": -count}, // Pop messages
 		},

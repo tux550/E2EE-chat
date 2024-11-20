@@ -146,7 +146,10 @@ func (s *Server) getConnectionEntry(connectionID string) (ConnectionEntry, error
 		// Request from DynamoDB
 		connection, err := s.memdb.GetConnection(connectionID)
 		if err != nil {
+			log.Printf("Failed to get connection %s: %v", connectionID, err)
 			return ConnectionEntry{}, err
+		} else {
+			log.Printf("Found connection %s: %v", connectionID, connection.Username)
 		}
 		return *connection, nil
 	}
@@ -178,7 +181,10 @@ func (s *Server) getConnectionEntriesByUser(userID string) ([]ConnectionEntry, e
 		// Request from DynamoDB
 		connections, err := s.memdb.GetUserConnections(userID)
 		if err != nil {
+			log.Printf("Failed to get connections for user %s: %v", userID, err)
 			return []ConnectionEntry{}, err
+		} else {
+			log.Printf("Found %d connections for user %s", len(connections), userID)
 		}
 		// From list of pointers to list of values
 		entries := make([]ConnectionEntry, len(connections))
@@ -205,8 +211,13 @@ func (s *Server) WebSocketSendConnection(connectionID string, msg []byte) {
 		s.mockWebSocketSendConnection(connectionID, msg)
 	} else {
 		// Send to connection
-		log.Printf("WS send to connection %s: %s", connectionID, string(msg))
-		s.apim.PostToConnection(connectionID, msg)
+		log.Printf("Call WS send to connection %s: %s", connectionID, string(msg))
+		err := s.apim.PostToConnection(connectionID, msg)
+		if err != nil {
+			log.Printf("Failed to send message to connection %s: %v", connectionID, err)
+		} else {
+			log.Printf("Sent message to connection %s", connectionID)
+		}
 	}
 }
 
