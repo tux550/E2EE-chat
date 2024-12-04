@@ -2,8 +2,8 @@ import time
 import requests
 import json
 
-CONNECTION_ID = "CRu4UdkQiYcCH8w="
-TARGET_USER_ID = "u3"
+CONNECTION_ID = "CR1k7cM5iYcCF6w=" #m2
+TARGET_USER_ID = "m1"
 API_URL = "http://my-docker-app-lb-1430747078.us-east-2.elb.amazonaws.com/"
 
 # Configuration
