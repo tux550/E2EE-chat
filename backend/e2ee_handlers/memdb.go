@@ -57,6 +57,7 @@ func (m *MemDBManager) GetUserConnections(username string) ([]*ConnectionEntry, 
 	// Query DynamoDB
 	result, err := m.client.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(os.Getenv("DDB_TABLE_CONN")),
+		IndexName:              aws.String("username-index"),
 		KeyConditionExpression: aws.String("username = :username"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":username": {

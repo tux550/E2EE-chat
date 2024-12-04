@@ -19,6 +19,8 @@ import (
 
 // ================================== CONFIG ===========================
 var url = "ws://localhost:8082/ws"
+
+// var url = "wss://myprodurl"
 var contacts_filename = "contacts.json"
 var secrets_filename string
 
