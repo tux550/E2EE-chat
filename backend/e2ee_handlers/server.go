@@ -39,9 +39,17 @@ func NewServer() *Server {
 	} else {
 		// Log production mode
 		log.Println("Running in production mode")
-		docdb = NewDocDBManager()
+
+		log.Println("Connecting to MemDB ...")
 		memdb = NewMemDBManager()
+
+		log.Println("Connecting to API Manager ...")
 		apim = NewAWSAPIManager()
+
+		log.Println("Connecting to DocDB ...")
+		docdb = NewDocDBManager()
+
+		log.Println("Connected to all services")
 
 	}
 

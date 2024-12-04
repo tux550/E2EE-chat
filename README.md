@@ -42,29 +42,39 @@ La base de datos utilizada es una base de documentos: MongoDB. Almacena la infor
 
 ## Arquitectura propuesta
 
-El escalamiento de servicios con websockets es un desafío en arquitecturas monolíticas. Para resolver este problema, se propone una arquitectura serverless que permite escalar de forma horizontal los servicios de chat y autenticación.
+El escalamiento de servicios con websockets es un desafío en arquitecturas monolíticas. Para resolver este problema, se propone utilizar servicios de cluster detras de un load balancer y una api gateway para gestionar las conexiones WebSocket. Esto permite desacoplar la lógica de negocio de la comunicación en tiempo real, permitiendo escalar de forma independiente.
 
 ![image](images/new_architecture.png "New architecture")
 
-## Pasos para ejecutar la aplicación
+## Pasos para desplegar la aplicación
 
-### Inicializar BD
+### Lambdas
+* Deployar lambda onConnect y onDisconnect
+
+### DynamoDB
+* Crear tabla `connections` con `connectionId` como primary key y un índice global secundario `username`
+
+### API Gateway
+* Crear API Gateway con WebSocket protocol
+* Crear ruta `$connect` y `$disconnect` para las lambdas onConnect y onDisconnect
+* Crear ruta `$default` para reenviar mensajes a ECS
+
+### ECS
+* Script de despliegue en `terraform`
+* Crear `secret.tfvars` con la url de conexion al API Gateway y url al container
+
+### Mock local
+* Para testear la aplicación localmente, se puede utilizar la app `mock` en la carpeta `mock`.
 ```bash
-docker-compose up -d
-```
-### Ejecutar Servidor
-```bash
-cd e2ee_server
-go run .
+make mock
+make backend
+make client
 ```
 
 ### Ejecutar Cliente
 ```bash
-cd e2ee_client
-go run .
+make client
 ```
-
-
 
 ## Objetivos & Topicos Cloud
 ### Migración a la Nube
@@ -83,7 +93,6 @@ Desarrollar un sistema de autoescalado para el servicio de chat basado en WebSoc
 
 ### Misc
 * **Cloud & DevOps**: Creación de un pipeline CI/CD para el despliegue continuo y automatizado de la aplicación.
-* **Cloud Security**: Autenticación de usuarios mediante servicios cloud, utilizando Amazon Cognito para la gestión de identidades y acceso seguro.
 
 
 ## Referencias

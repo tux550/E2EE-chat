@@ -18,7 +18,9 @@ import (
 )
 
 // ================================== CONFIG ===========================
-var url = "ws://localhost:8082/ws"
+// var url = "ws://localhost:8082/ws"
+
+var url = "wss://ur6gzg7x79.execute-api.us-east-2.amazonaws.com/production/"
 var contacts_filename = "contacts.json"
 var secrets_filename string
 

@@ -86,8 +86,8 @@ resource "aws_ecs_task_definition" "app" {
   family                   = "${var.app_name}-task"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 1024
-  memory                   = 2048
+  cpu                      = 256 // 1024
+  memory                   = 512 // 2048
   task_role_arn      = aws_iam_role.ecs_task_execution.arn
   execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
@@ -95,8 +95,8 @@ resource "aws_ecs_task_definition" "app" {
     name      = "${var.app_name}-container"
     image     = var.ecr_image_url
     //var.ecr_image_url
-    cpu       = 1024
-    memory    = 2048
+    cpu       = 256 //1024
+    memory    = 512 //2048
     essential = true
     portMappings = [{
       containerPort = 8080
@@ -197,5 +197,82 @@ resource "aws_ecs_service" "app" {
   }
 }
 
+# Application auto scaling target
+resource "aws_appautoscaling_target" "app" {
+  max_capacity       = 10
+  min_capacity       = 1
+  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.app.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
 
+resource "aws_appautoscaling_policy" "scale_up" {
+  name               = "scale-up"
+  policy_type        = "StepScaling"
+  resource_id        = aws_appautoscaling_target.app.resource_id
+  scalable_dimension = aws_appautoscaling_target.app.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.app.service_namespace
 
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = var.scale_cooldown
+    metric_aggregation_type = "Average"
+    step_adjustment {
+      metric_interval_lower_bound = 0
+      scaling_adjustment          = 1
+    }
+  }
+}
+
+resource "aws_appautoscaling_policy" "scale_down" {
+  name               = "scale-down"
+  policy_type        = "StepScaling"
+  resource_id        = aws_appautoscaling_target.app.resource_id
+  scalable_dimension = aws_appautoscaling_target.app.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.app.service_namespace
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = var.scale_cooldown
+    metric_aggregation_type = "Average"
+    step_adjustment {
+      metric_interval_upper_bound = 0
+      scaling_adjustment          = -1
+    }
+  }
+}
+
+# Cloudwatch alarm
+resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
+  alarm_name          = "scale-up"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = var.scale_period
+  statistic           = "Maximum"
+  threshold           = var.scale_up_threshold
+  alarm_description   = "Scale up if CPU > ${var.scale_up_threshold}%"
+  alarm_actions       = [aws_appautoscaling_policy.scale_up.arn]
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.app.name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
+  alarm_name          = "scale-down"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = var.scale_period
+  statistic           = "Maximum"
+  threshold           = var.scale_down_threshold
+  alarm_description   = "Scale down if CPU < ${var.scale_down_threshold}%"
+  alarm_actions       = [aws_appautoscaling_policy.scale_down.arn]
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.app.name
+  }
+}

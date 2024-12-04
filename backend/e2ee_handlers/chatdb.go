@@ -62,10 +62,13 @@ func NewDocDBManager() *DocDBManager {
 	}
 
 	// Check the connection
-	err = client.Ping(context.TODO(), nil)
-	if err != nil {
-		log.Fatalf("Failed to ping DocumentDB: %v", err)
-	}
+	// TEMPORARILY DISABLED
+	/*
+		err = client.Ping(context.TODO(), nil)
+		if err != nil {
+			log.Fatalf("Failed to ping DocumentDB: %v", err)
+		}
+	*/
 
 	log.Println("Connected to DocumentDB")
 

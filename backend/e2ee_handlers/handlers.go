@@ -32,7 +32,7 @@ func (h *APIHandler) SetSuccessResponse(w http.ResponseWriter) {
 	log.Println("Success")
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Success"))
+	w.Write([]byte("OK"))
 }
 
 func (h *APIHandler) SetSuccessResponseWithMessage(w http.ResponseWriter, message []byte) {
@@ -62,6 +62,14 @@ func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 	}
 	// Parse request
 	request := HTTPNormalizedRequest{}
+	log.Println("Request Method:", r.Method)
+	log.Println("Raw Request Body:", r.Body)
+	// If it is a health check, return success
+	if r.Method == "GET" {
+		h.SetSuccessResponse(w)
+		return
+	}
+
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		log.Println("Error decoding request:", err)
@@ -105,7 +113,6 @@ func (h *APIHandler) HandleRequests(w http.ResponseWriter, r *http.Request) {
 		// Invalid method
 		h.SetErrorResponse(w, fmt.Sprintf("Invalid method: %s", message.Method))
 		return
-
 	}
 }
 
