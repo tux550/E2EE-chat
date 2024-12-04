@@ -246,7 +246,7 @@ resource "aws_appautoscaling_policy" "scale_down" {
 resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
   alarm_name          = "scale-up"
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = 2
+  evaluation_periods  = 1
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
   period              = 60
@@ -263,7 +263,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
 resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
   alarm_name          = "scale-down"
   comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = 2
+  evaluation_periods  = 1
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
   period              = 60
