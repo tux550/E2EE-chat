@@ -95,8 +95,8 @@ resource "aws_ecs_task_definition" "app" {
     name      = "${var.app_name}-container"
     image     = var.ecr_image_url
     //var.ecr_image_url
-    cpu       = 1024
-    memory    = 2048
+    cpu       = 256 //1024
+    memory    = 512 //2048
     essential = true
     portMappings = [{
       containerPort = 8080
