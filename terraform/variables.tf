@@ -71,3 +71,27 @@ variable "ddb_table_connections" {
   type        = string
   default     = "e2ee_chat_connections"
 }
+
+variable "scale_down_threshold" {
+  description = "Scale down threshold"
+  type        = number
+  default     = 0.5
+}
+
+variable "scale_up_threshold" {
+  description = "Scale up threshold"
+  type        = number
+  default     = 2.5
+}
+
+variable "scale_period" {
+  description = "Scale period"
+  type        = number
+  default     = 60
+}
+variable "scale_cooldown" {
+  description = "Scale cooldown"
+  type        = number
+  default     = 60
+  
+}

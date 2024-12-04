@@ -86,8 +86,8 @@ resource "aws_ecs_task_definition" "app" {
   family                   = "${var.app_name}-task"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 1024
-  memory                   = 2048
+  cpu                      = 256 // 1024
+  memory                   = 512 // 2048
   task_role_arn      = aws_iam_role.ecs_task_execution.arn
   execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
@@ -215,7 +215,7 @@ resource "aws_appautoscaling_policy" "scale_up" {
 
   step_scaling_policy_configuration {
     adjustment_type         = "ChangeInCapacity"
-    cooldown                = 60
+    cooldown                = var.scale_cooldown
     metric_aggregation_type = "Average"
     step_adjustment {
       metric_interval_lower_bound = 0
@@ -233,7 +233,7 @@ resource "aws_appautoscaling_policy" "scale_down" {
 
   step_scaling_policy_configuration {
     adjustment_type         = "ChangeInCapacity"
-    cooldown                = 60
+    cooldown                = var.scale_cooldown
     metric_aggregation_type = "Average"
     step_adjustment {
       metric_interval_upper_bound = 0
@@ -249,10 +249,10 @@ resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
   evaluation_periods  = 1
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
-  period              = 60
-  statistic           = "Average"
-  threshold           = 70
-  alarm_description   = "Scale up if CPU > 70%"
+  period              = var.scale_period
+  statistic           = "Maximum"
+  threshold           = var.scale_up_threshold
+  alarm_description   = "Scale up if CPU > ${var.scale_up_threshold}%"
   alarm_actions       = [aws_appautoscaling_policy.scale_up.arn]
   dimensions = {
     ClusterName = aws_ecs_cluster.main.name
@@ -266,10 +266,10 @@ resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
   evaluation_periods  = 1
   metric_name         = "CPUUtilization"
   namespace           = "AWS/ECS"
-  period              = 60
-  statistic           = "Average"
-  threshold           = 30
-  alarm_description   = "Scale down if CPU < 30%"
+  period              = var.scale_period
+  statistic           = "Maximum"
+  threshold           = var.scale_down_threshold
+  alarm_description   = "Scale down if CPU < ${var.scale_down_threshold}%"
   alarm_actions       = [aws_appautoscaling_policy.scale_down.arn]
   dimensions = {
     ClusterName = aws_ecs_cluster.main.name

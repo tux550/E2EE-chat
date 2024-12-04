@@ -2,13 +2,13 @@ import time
 import requests
 import json
 
-CONNECTION_ID = "placeholder"
+CONNECTION_ID = "CRu4UdkQiYcCH8w="
 TARGET_USER_ID = "u3"
-API_URL = "http://my-docker-app-lb-1325993742.us-east-2.elb.amazonaws.com/"
+API_URL = "http://my-docker-app-lb-1430747078.us-east-2.elb.amazonaws.com/"
 
 # Configuration
-wait_interval = 0.5  # Interval between requests in seconds
-request_count = 100  # Total number of requests to send
+wait_interval = 0.01 #0.1  # Interval between requests in seconds
+request_count = 500  # Total number of requests to send
 json_payload = {
     "connectionId": CONNECTION_ID,
     "body": {"method":"get_bundle","params":{"user_id":TARGET_USER_ID}}
